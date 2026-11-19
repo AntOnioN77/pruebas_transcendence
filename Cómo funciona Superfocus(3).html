@@ -1,0 +1,2296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cómo funciona Superfocus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Layout: cabecera + pestañas · diagrama a todo el ancho · narración y ficha en dos columnas · ideas · glosario */
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --ink: #18202c;
+  --muted: #5a6474;
+  --line: #c6cdd8;
+  --z-build: #a8690f;
+  --z-server: #0b7a68;
+  --z-browser: #3653c9;
+  --node: #4a8a2a;
+  --pkt: #c92a6b;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151c; --surface: #1a2029; --ink: #e5e9f0; --muted: #9ba4b4; --line: #343d4b;
+    --z-build: #e3a84e; --z-server: #3fc2aa; --z-browser: #8299ff; --node: #92cc63; --pkt: #ff6f9f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151c; --surface: #1a2029; --ink: #e5e9f0; --muted: #9ba4b4; --line: #343d4b;
+  --z-build: #e3a84e; --z-server: #3fc2aa; --z-browser: #8299ff; --node: #92cc63; --pkt: #ff6f9f;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+}
+code, .mono { font-family: var(--font-mono); font-size: 0.9em; }
+code { background: color-mix(in srgb, var(--line) 35%, transparent); padding: 0.05em 0.35em; border-radius: 4px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 24px 20px 64px; display: grid; gap: 28px; }
+
+header { display: grid; gap: 6px; }
+header .kicker { font-family: var(--font-mono); font-size: 13px; color: var(--muted); letter-spacing: 0.02em; }
+h1 { font-size: clamp(26px, 3.4vw, 36px); line-height: 1.15; margin: 0; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 70ch; }
+
+nav.tabs { display: flex; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+.tab {
+  font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  padding: 7px 12px; border-radius: 8px; display: inline-flex; gap: 8px; align-items: center;
+}
+.tab[aria-current="page"] { border-color: var(--ink); color: var(--ink); font-weight: 600; }
+.tab[aria-disabled="true"] { opacity: 0.6; cursor: not-allowed; }
+.tab .soon { font-family: var(--font-mono); font-size: 11px; border: 1px dashed var(--line); border-radius: 4px; padding: 0 5px; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+figure { margin: 0; }
+.diagram { padding: 12px; overflow-x: auto; }
+.diagram svg { display: block; width: 100%; min-width: 900px; height: auto; }
+figcaption { padding: 0 16px 14px; color: var(--muted); font-size: 14px; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.stepcard { margin: 4px 12px 12px; padding: 20px 22px; display: grid; gap: 16px; background: var(--bg); border: 1px solid var(--line); border-left: 4px solid var(--pkt); border-radius: 10px; }
+.story { display: grid; gap: 12px; min-width: 0; }
+.story h2 { font-size: 22px; margin: 0; line-height: 1.25; text-wrap: balance; }
+.story p { margin: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+.chip { font: 500 13px var(--font-body); cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 3px 11px; }
+.chip:hover { border-color: var(--ink); }
+.chip:focus-visible, .dlg-close:focus-visible { outline: 2px solid var(--pkt); outline-offset: 2px; }
+
+dialog#ficha-dlg { width: min(680px, calc(100% - 32px)); max-height: calc(100% - 48px); padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 60px rgb(0 0 0 / 0.28); }
+dialog#ficha-dlg::backdrop { background: rgb(10 14 20 / 0.45); }
+dialog#ficha-dlg .card { padding: 24px 26px 8px; }
+.dlg-close { position: absolute; top: 10px; right: 12px; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; }
+.dlg-foot { display: flex; justify-content: flex-end; padding: 8px 26px 20px; }
+#ficha h2 { padding-right: 40px; }
+.btn {
+  font: inherit; font-size: 14px; cursor: pointer; border-radius: 8px; padding: 7px 14px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+}
+.btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn:focus-visible, .tab:focus-visible, .nd:focus-visible { outline: 2px solid var(--pkt); outline-offset: 2px; }
+.counter { font-family: var(--font-mono); font-size: 13px; color: var(--muted); margin-left: 4px; }
+
+/* SVG */
+.zone rect.zbg { stroke-width: 1.5; }
+.zone.build rect.zbg { fill: color-mix(in srgb, var(--z-build) 7%, transparent); stroke: color-mix(in srgb, var(--z-build) 55%, transparent); }
+.zone.server rect.zbg { fill: color-mix(in srgb, var(--z-server) 7%, transparent); stroke: color-mix(in srgb, var(--z-server) 55%, transparent); }
+.zone.browser rect.zbg { fill: color-mix(in srgb, var(--z-browser) 7%, transparent); stroke: color-mix(in srgb, var(--z-browser) 55%, transparent); }
+.ztitle { font: 600 14px var(--font-mono); letter-spacing: 0.08em; }
+.zone.build .ztitle { fill: var(--z-build); }
+.zone.server .ztitle { fill: var(--z-server); }
+.zone.browser .ztitle { fill: var(--z-browser); }
+.zsub { font: 400 12px var(--font-body); fill: var(--muted); }
+.netbox { fill: none; stroke: var(--muted); stroke-dasharray: 5 5; stroke-width: 1; }
+.netlabel { font: 400 11px var(--font-mono); fill: var(--muted); }
+
+.nd { cursor: pointer; transition: opacity 0.25s; }
+.nd rect.box { fill: var(--surface); stroke: var(--ink); stroke-width: 1.2; }
+.nd:hover rect.box, .nd.sel rect.box { stroke-width: 2.6; }
+.nd.nodejs rect.box { stroke: var(--node); stroke-width: 2; }
+.nd.nodejs:hover rect.box, .nd.nodejs.sel rect.box { stroke-width: 3.2; }
+.nd .t { font: 600 14px var(--font-body); fill: var(--ink); }
+.nd .s { font: 400 12px var(--font-body); fill: var(--muted); }
+.nd .p { font: 500 12px var(--font-mono); fill: var(--muted); }
+.nd .r { font: 400 12px var(--font-mono); fill: var(--ink); }
+.nd .badge rect { fill: var(--node); }
+.nd .badge text { font: 600 10px var(--font-mono); fill: var(--surface); }
+
+.ar { transition: opacity 0.25s; }
+.ar path, .ar line { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.ar.https path, .ar.https line { stroke: var(--ink); stroke-width: 1.8; }
+.al { font: 500 11px var(--font-mono); fill: var(--muted); paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+.al.strong { fill: var(--ink); }
+.arrowhead { fill: var(--muted); }
+.arrowhead.dark { fill: var(--ink); }
+
+svg.focus .nd:not(.on), svg.focus .ar:not(.on), svg.focus .netlabel { opacity: 0.18; }
+.pkt circle { fill: var(--pkt); }
+.pkt text { font: 600 11px var(--font-mono); fill: var(--pkt); }
+.pkt rect { fill: var(--surface); stroke: var(--pkt); stroke-width: 1.2; }
+
+/* Narración y ficha */
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .duo { grid-template-columns: 1fr; } }
+.card { padding: 20px 22px; display: grid; gap: 10px; }
+.card h2 { font-size: 20px; margin: 0; line-height: 1.25; text-wrap: balance; }
+.card p { margin: 0; max-width: 68ch; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+dl.facts { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; }
+dl.facts dt { font-family: var(--font-mono); font-size: 12px; color: var(--muted); padding-top: 3px; }
+dl.facts dd { margin: 0; }
+.sec { border-left: 3px solid var(--pkt); padding: 8px 12px; background: color-mix(in srgb, var(--pkt) 6%, transparent); border-radius: 0 8px 8px 0; }
+.sec b { font-family: var(--font-mono); font-size: 12px; color: var(--pkt); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }
+.pill { display: inline-block; font-family: var(--font-mono); font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; }
+.pill.build { color: var(--z-build); } .pill.server { color: var(--z-server); } .pill.browser { color: var(--z-browser); }
+
+h2.section { font-size: 22px; margin: 0 0 4px; }
+.lead { color: var(--muted); margin: 0 0 14px; max-width: 70ch; }
+.ideas { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.idea { padding: 16px 18px; display: grid; gap: 6px; align-content: start; }
+.idea h3 { margin: 0; font-size: 16px; }
+.idea p { margin: 0; font-size: 15px; }
+.idea.security { border-color: color-mix(in srgb, var(--pkt) 60%, var(--line)); }
+
+.aside-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+@media (max-width: 860px) { .aside-grid { grid-template-columns: 1fr; } }
+.aside-grid ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+
+.gloss { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; }
+.gloss div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; font-size: 14.5px; }
+.gloss dt { font-weight: 600; font-family: var(--font-mono); font-size: 13.5px; }
+.gloss dd { margin: 2px 0 0; color: var(--ink); }
+
+footer { color: var(--muted); font-size: 13px; }
+
+a.tab { text-decoration: none; cursor: pointer; }
+a.tab:hover { color: var(--ink); border-color: var(--muted); }
+.view { display: grid; gap: 28px; }
+.view[hidden] { display: none; }
+
+
+
+/* ---------- Estructura de la aplicación ---------- */
+:root { --panelw: clamp(360px, 31vw, 470px); --navh: 66px; --barh: 52px; }
+html, body { height: 100%; }
+body { display: grid; grid-template-rows: var(--barh) minmax(0, 1fr); overflow: hidden; }
+.topbar { display: flex; align-items: center; gap: 14px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--line); min-width: 0; }
+.tb-btn { font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+.tb-btn:hover { border-color: var(--muted); }
+.tb-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32vw; }
+.tb-progress { flex: 1; display: flex; gap: 3px; min-width: 0; align-items: center; }
+.tb-progress button { flex: 1; min-width: 3px; height: 8px; border: 0; padding: 0; border-radius: 3px; background: var(--line); cursor: pointer; }
+.tb-progress button.done { background: color-mix(in srgb, var(--pkt) 40%, var(--line)); }
+.tb-progress button[aria-current] { background: var(--pkt); height: 12px; }
+.tb-progress button:hover { background: var(--muted); }
+.tb-btn:focus-visible, .tb-progress button:focus-visible, .ixcard:focus-visible, .zoom-toggle:focus-visible, .linkbtn:focus-visible { outline: 2px solid var(--pkt); outline-offset: 2px; }
+
+#app { position: relative; min-height: 0; overflow: hidden; }
+.chap, .index { position: absolute; inset: 0; }
+.chap[hidden], .index[hidden], .stage[hidden], .reader[hidden], .rd[hidden] { display: none; }
+
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) var(--panelw); height: 100%; }
+.diag-col { position: relative; min-width: 0; min-height: 0; padding: 14px; display: flex; flex-direction: column; }
+.diag-col > figure { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.diag-col .diagram { flex: 1; min-height: 0; padding: 10px; overflow: hidden; }
+.diag-col .diagram svg { width: 100%; height: 100%; min-width: 0; }
+.diag-col .seqhead { flex: none; padding-bottom: 0; }
+.diag-col .seqhead svg { height: auto; }
+.diag-col .seqbody { flex: 1; max-height: none; overflow: auto; }
+.diag-col .seqbody svg { height: auto; }
+.zoom-toggle { position: absolute; top: 24px; right: 26px; z-index: 2; font: 500 13px var(--font-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 5px 13px; cursor: pointer; box-shadow: 0 2px 8px rgb(0 0 0 / 0.08); }
+.zoom-toggle[aria-pressed="false"] { color: var(--muted); }
+.zoom-toggle:hover { border-color: var(--ink); }
+
+.panel-col { background: var(--surface); border-left: 1px solid var(--line); min-height: 0; display: flex; flex-direction: column; }
+.panel-scroll { flex: 1; overflow: auto; padding: 24px 26px calc(var(--navh) + 28px); }
+.aside-note { padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); }
+.linkbtn { font: inherit; color: var(--ink); background: none; border: 0; padding: 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-weight: 600; }
+
+.reader { height: 100%; overflow: auto; padding: 28px 20px calc(var(--navh) + 40px); }
+.rd { max-width: 1120px; margin: 0 auto; display: grid; gap: 24px; }
+
+.gnav { position: fixed; right: 0; bottom: 0; width: var(--panelw); height: var(--navh); z-index: 5; display: flex; align-items: center; gap: 10px; padding: 0 18px; background: var(--surface); border-top: 1px solid var(--line); border-left: 1px solid var(--line); border-top-left-radius: 12px; box-shadow: 0 -4px 18px rgb(0 0 0 / 0.06); }
+.gnav .btn { white-space: nowrap; }
+.gnav [hidden] { display: none; }
+#g-next { margin-left: auto; font-weight: 600; padding: 10px 18px; font-size: 15px; }
+.g-pos { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+/* Índice */
+.index { overflow: auto; }
+.ix-wrap { max-width: 1040px; margin: 0 auto; padding: 40px 20px calc(var(--navh) + 48px); display: grid; gap: 20px; }
+.ix-wrap h1 { margin: 0; }
+.ix-lead { margin: 0; color: var(--muted); max-width: 70ch; font-size: 17px; }
+.howto { margin: 0; padding: 14px 18px 14px 36px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 6px; }
+.ix-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+.ixcard { font: inherit; color: var(--ink); text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: grid; gap: 6px; align-content: start; cursor: pointer; }
+.ixcard:hover { border-color: var(--ink); }
+.ixcard.start { border: 2px solid var(--ink); }
+.ixcard.pending { cursor: default; border-style: dashed; color: var(--muted); }
+.ixcard.pending:hover { border-color: var(--line); }
+.ix-top { display: flex; align-items: center; gap: 8px; }
+.ix-num { font-size: 22px; line-height: 1; }
+.ix-tag { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; color: var(--muted); }
+.ix-tag.strong { border-color: var(--pkt); color: var(--pkt); }
+.ix-tag.seen { border-color: var(--z-server); color: var(--z-server); }
+.ix-title { font-size: 18px; font-weight: 600; }
+.ix-desc { font-size: 15px; color: var(--muted); }
+.ix-meta { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-top: 4px; }
+.btn.continue { justify-self: start; border-color: var(--ink); }
+.ix-foot { color: var(--muted); font-size: 13px; margin: 0; }
+
+/* Glosario lateral */
+dialog.drawer { margin: 0 0 0 auto; height: 100%; max-height: 100%; width: min(520px, 100%); padding: 0; border: 0; border-left: 1px solid var(--line); background: var(--bg); color: var(--ink); display: none; }
+dialog.drawer[open] { display: flex; flex-direction: column; }
+dialog.drawer::backdrop { background: rgb(10 14 20 / 0.4); }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.drawer-head h2 { margin: 0; font-size: 20px; }
+.dlg-close.static { position: static; }
+.gl-search { display: grid; gap: 4px; padding: 14px 20px 6px; font-size: 13px; color: var(--muted); }
+.gl-search input { font: inherit; font-size: 15px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+dialog.drawer .gloss { overflow: auto; padding: 10px 20px 24px; grid-template-columns: 1fr; margin: 0; }
+dialog.drawer .gloss div[hidden] { display: none; }
+
+@media (max-width: 900px) {
+  :root { --panelw: 100%; --navh: 60px; }
+  .stage { grid-template-columns: minmax(0, 1fr); grid-template-rows: 46% minmax(0, 1fr); }
+  .panel-col { border-left: 0; border-top: 1px solid var(--line); }
+  .diag-col { padding: 8px; }
+  .gnav { border-left: 0; border-top-left-radius: 0; }
+  .tb-title { display: none; }
+  .zoom-toggle { top: 14px; right: 14px; }
+}
+
+/* ② construcción */
+.stage-build { fill: color-mix(in srgb, var(--node) 5%, transparent); stroke: var(--node); stroke-width: 1.5; stroke-dasharray: 7 5; }
+.stage-final { fill: color-mix(in srgb, var(--z-server) 7%, transparent); stroke: color-mix(in srgb, var(--z-server) 55%, transparent); stroke-width: 1.5; }
+.stg-repo { fill: var(--muted); } .stg-build { fill: var(--node); } .stg-final { fill: var(--z-server); }
+.lane { font: 600 11px var(--font-mono); letter-spacing: 0.1em; fill: var(--muted); }
+.nd .r.sm { font-size: 11.5px; }
+.story pre.wire { font-size: 12.5px; background: var(--surface); border: 1px solid var(--line); margin: 8px 0; }
+.story .chips { margin-top: 6px; }
+.story ol, .story ul { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+table.files { border-collapse: collapse; font-size: 14px; width: 100%; max-width: 860px; }
+table.files th, table.files td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.files td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-family: var(--font-mono); font-size: 13px; }
+table.files th { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-weight: 600; }
+.filewrap { overflow-x: auto; }
+ol.tasks { margin: 0; padding-left: 22px; display: grid; gap: 6px; max-width: 78ch; }
+
+
+/* ③ primera carga */
+.seqhead { padding-bottom: 0; }
+.seqbody { padding-top: 0; max-height: min(560px, 62vh); overflow: auto; overscroll-behavior: contain; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.lf-life { stroke: var(--line); stroke-width: 1.5; }
+.lf-self rect { fill: color-mix(in srgb, var(--z-browser) 8%, var(--surface)); stroke: color-mix(in srgb, var(--z-browser) 50%, transparent); stroke-width: 1; }
+.lf-self text { font: 400 12px var(--font-body); fill: var(--ink); }
+.lf-self line { stroke: color-mix(in srgb, var(--z-browser) 50%, transparent); stroke-dasharray: 2 3; }
+.lf-msg line { stroke: var(--ink); stroke-width: 1.5; }
+.lf-msg.back line { stroke-dasharray: 6 4; }
+.lf-msg.db line { stroke: var(--z-server); }
+.lf-msg.conn line { stroke: var(--muted); stroke-width: 2; stroke-dasharray: 2 4; }
+.lf-msg text { font: 500 12px var(--font-mono); fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+.lf-msg.err text { fill: var(--pkt); }
+.lf-msg .via { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
+.lf-num { font: 500 10.5px var(--font-mono); fill: var(--muted); }
+.lf-sep { stroke: var(--line); stroke-width: 1; stroke-dasharray: 1 5; }
+.lf-phase { font: 600 11px var(--font-mono); letter-spacing: 0.08em; fill: var(--muted); }
+
+
+/* ④ interacción */
+.ar.err path, .ar.err line { stroke: var(--pkt); stroke-dasharray: 5 4; }
+.al.errl { fill: var(--pkt); }
+.nd rect.box.errbox { stroke: var(--pkt); }
+
+/* ⓪ capas */
+.lay-l { fill: var(--muted); } .lay-r { fill: var(--z-server); } .lay-m { fill: var(--muted); }
+.lbox { fill: var(--surface); stroke: var(--ink); stroke-width: 1.2; }
+.lbox.same { fill: color-mix(in srgb, var(--muted) 10%, var(--surface)); stroke: var(--muted); }
+.lbox.ghost { fill: none; stroke: var(--line); stroke-dasharray: 5 5; }
+.lbox.tls { stroke: var(--z-server); stroke-width: 2; }
+.lt { font: 600 14px var(--font-body); fill: var(--ink); }
+.lp { font: 400 12.5px var(--font-mono); fill: var(--muted); }
+.lm { font: 400 12.5px var(--font-body); fill: var(--muted); }
+.lm.strong { font-weight: 600; fill: var(--ink); }
+.link { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 3 4; }
+
+/* ⓪ anatomía */
+.anat { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 860px) { .anat { grid-template-columns: 1fr; } }
+.msg { padding: 16px 18px; display: grid; gap: 8px; align-content: start; }
+.msg p { margin: 0; max-width: 70ch; }
+.msg.irc { margin-top: 16px; }
+pre.wire { margin: 0; font-family: var(--font-mono); font-size: 13.5px; line-height: 1.7; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); border-radius: 8px; padding: 12px 14px; }
+pre.wire i { font-style: normal; color: var(--muted); opacity: 0.7; }
+pre.wire span[data-p] { border-radius: 4px; transition: background 0.15s, box-shadow 0.15s; }
+pre.wire span.lit { background: color-mix(in srgb, var(--pkt) 18%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--pkt) 45%, transparent); }
+.hl-irc { background: color-mix(in srgb, var(--pkt) 18%, transparent); border-radius: 4px; }
+ol.legend { margin: 16px 0 0; padding: 0; list-style: none; counter-reset: lg; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px; }
+ol.legend li { counter-increment: lg; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px 10px 44px; position: relative; font-size: 14.5px; cursor: default; }
+ol.legend li::before { content: counter(lg); position: absolute; left: 12px; top: 10px; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--surface); font: 600 12px/22px var(--font-mono); text-align: center; }
+ol.legend li:hover, ol.legend li:focus-visible, ol.legend li.lit { border-color: var(--pkt); outline: none; }
+.sec.spaced { margin-top: 16px; }
+
+/* ⓪ secuencia */
+.seqbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 16px 18px 0; }
+.seg { display: inline-flex; gap: 6px; }
+.segb[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.sq-actor rect { fill: var(--surface); stroke: var(--ink); stroke-width: 1.2; }
+.sq-actor text { font: 600 13px var(--font-body); fill: var(--ink); }
+.sq-actor .sub { font: 400 11.5px var(--font-mono); fill: var(--muted); }
+.sq-life { stroke: var(--line); stroke-width: 1.5; }
+.sq-act { fill: color-mix(in srgb, var(--z-server) 30%, transparent); }
+.sq-act.dashed { fill: none; stroke: var(--z-server); stroke-dasharray: 4 4; }
+.sq-msg line { stroke: var(--ink); stroke-width: 1.5; }
+.sq-msg text { font: 500 12px var(--font-mono); fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+.sq-msg.push line { stroke: var(--pkt); stroke-width: 2.2; }
+.sq-msg.push text { fill: var(--pkt); }
+.sq-msg.conn line { stroke: var(--muted); stroke-dasharray: 2 4; stroke-width: 2; }
+.sq-msg.conn text { fill: var(--muted); }
+.sq-gap { font: italic 400 12px var(--font-body); fill: var(--muted); }
+.sq-note { font: 400 12.5px var(--font-body); fill: var(--muted); }
+.sq-note-line { stroke: var(--line); stroke-width: 1; }
+.ah-ink { fill: var(--ink); } .ah-pkt { fill: var(--pkt); } .ah-mut { fill: var(--muted); } .ah-srv { fill: var(--z-server); }
+
+/* ⓪ tabla y preguntas */
+.tablewrap { overflow-x: auto; }
+table.cmp { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 640px; }
+table.cmp th, table.cmp td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.cmp thead th { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+table.cmp tbody th { font-weight: 600; white-space: nowrap; }
+table.cmp tbody tr:last-child th, table.cmp tbody tr:last-child td { border-bottom: none; }
+details { border-top: 1px solid var(--line); padding: 10px 0; }
+details:last-child { border-bottom: 1px solid var(--line); }
+summary { cursor: pointer; font-weight: 500; }
+details p { margin: 8px 0 0 18px; color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .nd, .ar { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="view" id="view-mapa">
+<figure class="panel">
+  <div class="diagram">
+  <svg id="map" viewBox="0 0 1200 600" role="img" aria-label="Mapa de la aplicación en tres zonas. Construcción: Node.js ejecuta tsc y Vite para convertir el código del front en ficheros estáticos y compila el backend. Servidor: nginx en el puerto 443 sirve esos ficheros y reenvía /api al backend NestJS en el 3000, que consulta PostgreSQL en el 5432. Navegador: descarga los ficheros, su motor JavaScript ejecuta React, que dibuja el DOM y pide datos a /api.">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker>
+      <marker id="ahd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead dark" d="M0,0 L10,5 L0,10 z"/></marker>
+    </defs>
+
+    <!-- Zonas -->
+    <g class="zone build"><rect class="zbg" x="20" y="20" width="390" height="560" rx="14"/>
+      <text class="ztitle" x="40" y="50">CONSTRUCCIÓN</text><text class="zsub" x="40" y="68">una vez, al hacer make</text></g>
+    <g class="zone server"><rect class="zbg" x="440" y="20" width="380" height="560" rx="14"/>
+      <text class="ztitle" x="460" y="50">SERVIDOR</text><text class="zsub" x="460" y="68">siempre encendido, esperando peticiones</text></g>
+    <g class="zone browser"><rect class="zbg" x="860" y="20" width="320" height="560" rx="14"/>
+      <text class="ztitle" x="880" y="50">NAVEGADOR</text><text class="zsub" x="880" y="68">en el ordenador de cada usuario</text></g>
+
+    <rect class="netbox" x="455" y="84" width="350" height="482" rx="10"/>
+    <text class="netlabel" x="467" y="556">red interna: desde fuera solo se llega al :443</text>
+
+    <!-- Flechas -->
+    <g class="ar" data-id="a-srcweb"><line x1="120" y1="156" x2="120" y2="266" marker-end="url(#ah)"/><text class="al" x="128" y="215">npm run build</text></g>
+    <g class="ar" data-id="a-srcapi"><line x1="120" y1="448" x2="120" y2="338" marker-end="url(#ah)"/><text class="al" x="128" y="398">nest build</text></g>
+    <g class="ar" data-id="a-buildweb"><path d="M200,292 H300 V158" marker-end="url(#ah)"/><text class="al" x="308" y="228">tsc + Vite</text></g>
+    <g class="ar" data-id="a-buildapi"><path d="M200,314 H330 V446" marker-end="url(#ah)"/><text class="al" x="338" y="388">tsc</text></g>
+    <g class="ar" data-id="a-deployweb"><line x1="390" y1="122" x2="471" y2="122" marker-end="url(#ah)"/><text class="al" x="431" y="113" text-anchor="middle">se copia</text></g>
+    <g class="ar" data-id="a-deployapi"><path d="M390,482 H425 V330 H471" marker-end="url(#ah)"/><text class="al" x="425" y="410" text-anchor="middle">lo ejecuta</text></g>
+    <g class="ar" data-id="a-proxy"><line x1="630" y1="224" x2="630" y2="286" marker-start="url(#ah)" marker-end="url(#ah)"/><text class="al" x="640" y="252">/api/* · HTTP interno</text></g>
+    <g class="ar" data-id="a-sql"><line x1="630" y1="374" x2="630" y2="446" marker-start="url(#ah)" marker-end="url(#ah)"/><text class="al" x="640" y="414">SQL</text></g>
+    <g class="ar https" data-id="a-files"><line x1="789" y1="116" x2="901" y2="116" marker-start="url(#ahd)" marker-end="url(#ahd)"/><text class="al strong" x="845" y="107" text-anchor="middle">HTML · JS · CSS</text></g>
+    <g class="ar https" data-id="a-json"><line x1="789" y1="156" x2="901" y2="156" marker-start="url(#ahd)" marker-end="url(#ahd)"/><text class="al strong" x="845" y="147" text-anchor="middle">/api → JSON</text></g>
+    <text class="al" x="845" y="186" text-anchor="middle">HTTPS :443</text>
+    <g class="ar" data-id="a-code"><line x1="1035" y1="172" x2="1035" y2="226" marker-end="url(#ah)"/><text class="al" x="1045" y="203">código JS</text></g>
+    <g class="ar" data-id="a-boot"><line x1="1035" y1="296" x2="1035" y2="336" marker-end="url(#ah)"/><text class="al" x="1045" y="320">arranca</text></g>
+    <g class="ar" data-id="a-dom"><line x1="1035" y1="406" x2="1035" y2="446" marker-start="url(#ah)" marker-end="url(#ah)"/><text class="al" x="1045" y="430">dibuja · eventos</text></g>
+    <g class="ar" data-id="a-fetch"><path d="M905,372 H884 V160 H901" marker-end="url(#ah)"/><text class="al" x="880" y="270" text-anchor="middle" transform="rotate(-90 880 270)">fetch()</text></g>
+
+    <!-- Nodos: construcción -->
+    <g class="nd" data-id="src-web" tabindex="0" role="button" aria-label="Código del front"><rect class="box" x="40" y="90" width="160" height="64" rx="8"/>
+      <text class="t" x="54" y="116">Código del front</text><text class="p" x="54" y="138">web/src/*.tsx</text></g>
+    <g class="nd" data-id="dist-web" tabindex="0" role="button" aria-label="dist del front"><rect class="box" x="230" y="90" width="160" height="64" rx="8"/>
+      <text class="t" x="244" y="116">dist/ del front</text><text class="p" x="244" y="138">html · js · css</text></g>
+    <g class="nd nodejs" data-id="node-build" tabindex="0" role="button" aria-label="Node.js como herramienta"><rect class="box" x="40" y="270" width="160" height="64" rx="8"/>
+      <text class="t" x="54" y="296">Node.js</text><text class="s" x="54" y="318">como herramienta</text>
+      <g class="badge"><rect x="148" y="262" width="44" height="16" rx="4"/><text x="170" y="274" text-anchor="middle">1/2</text></g></g>
+    <g class="nd" data-id="src-api" tabindex="0" role="button" aria-label="Código del back"><rect class="box" x="40" y="450" width="160" height="64" rx="8"/>
+      <text class="t" x="54" y="476">Código del back</text><text class="p" x="54" y="498">api/src/*.ts</text></g>
+    <g class="nd" data-id="dist-api" tabindex="0" role="button" aria-label="dist main.js del back"><rect class="box" x="230" y="450" width="160" height="64" rx="8"/>
+      <text class="t" x="244" y="476">dist/main.js</text><text class="s" x="244" y="498">back compilado</text></g>
+
+    <!-- Nodos: servidor -->
+    <g class="nd" data-id="nginx" tabindex="0" role="button" aria-label="nginx"><rect class="box" x="475" y="96" width="310" height="126" rx="8"/>
+      <text class="t" x="491" y="122">nginx</text><text class="p" x="769" y="122" text-anchor="end">:443</text>
+      <text class="s" x="491" y="142">servidor web + reverse proxy</text>
+      <text class="r" x="491" y="172">/      → ficheros de dist/</text>
+      <text class="r" x="491" y="196">/api/  → reenvía a api:3000</text></g>
+    <g class="nd nodejs" data-id="backend" tabindex="0" role="button" aria-label="Node.js con NestJS, el backend"><rect class="box" x="475" y="290" width="310" height="82" rx="8"/>
+      <text class="t" x="491" y="316">Node.js + NestJS</text><text class="p" x="769" y="316" text-anchor="end">:3000</text>
+      <text class="s" x="491" y="338">ejecuta dist/main.js</text><text class="s" x="491" y="358">lógica de la app · responde JSON</text>
+      <g class="badge"><rect x="733" y="282" width="44" height="16" rx="4"/><text x="755" y="294" text-anchor="middle">2/2</text></g></g>
+    <g class="nd" data-id="postgres" tabindex="0" role="button" aria-label="PostgreSQL"><rect class="box" x="475" y="450" width="310" height="72" rx="8"/>
+      <text class="t" x="491" y="476">PostgreSQL</text><text class="p" x="769" y="476" text-anchor="end">:5432</text>
+      <text class="s" x="491" y="500">tablas · solo habla con el backend</text></g>
+
+    <!-- Nodos: navegador -->
+    <g class="nd" data-id="net" tabindex="0" role="button" aria-label="Red del navegador"><rect class="box" x="905" y="92" width="260" height="78" rx="8"/>
+      <text class="t" x="921" y="118">Red del navegador</text><text class="s" x="921" y="140">conexiones HTTPS · cookies</text></g>
+    <g class="nd" data-id="v8" tabindex="0" role="button" aria-label="Motor JavaScript del navegador"><rect class="box" x="905" y="230" width="260" height="64" rx="8"/>
+      <text class="t" x="921" y="256">Motor JS (V8)</text><text class="s" x="921" y="278">ejecuta el bundle</text></g>
+    <g class="nd" data-id="react" tabindex="0" role="button" aria-label="React"><rect class="box" x="905" y="340" width="260" height="64" rx="8"/>
+      <text class="t" x="921" y="366">React</text><text class="s" x="921" y="388">estado → interfaz</text></g>
+    <g class="nd" data-id="dom" tabindex="0" role="button" aria-label="DOM y pantalla"><rect class="box" x="905" y="450" width="260" height="64" rx="8"/>
+      <text class="t" x="921" y="476">DOM · pantalla</text><text class="s" x="921" y="498">lo que el usuario ve y toca</text></g>
+
+    <g id="pkts"></g>
+  </svg>
+  </div>
+  <div class="story" id="story" aria-live="polite"></div>
+</figure>
+
+
+<section>
+  <h2 class="section">Cuatro ideas que corrigen el modelo intuitivo</h2>
+  <p class="lead">Son los malentendidos más habituales al empezar. Si te quedas con estas cuatro, el resto de esquemas encaja solo.</p>
+  <div class="ideas">
+    <div class="panel idea"><h3>Construir no es ejecutar</h3><p>La construcción ocurre una vez, antes de que llegue ningún usuario, y produce ficheros de texto. Una petición nunca dispara una compilación.</p></div>
+    <div class="panel idea"><h3>Node.js aparece dos veces</h3><p>Primero como herramienta que construye y termina; después como servidor que ejecuta el backend y no se apaga. El JavaScript del front no lo ejecuta Node, sino el navegador.</p></div>
+    <div class="panel idea"><h3>Dos tipos de respuesta</h3><p>nginx sirve ficheros iguales para todos (HTML, JS, CSS). El backend genera respuestas a medida, siempre en JSON. El HTML llega una sola vez, al cargar la app.</p></div>
+    <div class="panel idea security"><h3>La frontera de confianza</h3><p>Todo lo que hay en la zona Navegador está en manos del usuario: puede leer el bundle y fabricar peticiones con <code>curl</code>. Los secretos y las comprobaciones que importan viven en el backend.</p></div>
+  </div>
+</section>
+
+<section class="aside-grid">
+  <div class="panel card">
+    <div class="eyebrow">Al margen</div>
+    <h2>¿Y si el backend devolviera HTML?</h2>
+    <p>Eso es <strong>SSR</strong> (<em>Server-Side Rendering</em>): en cada petición, Node ejecuta React en el servidor y devuelve el HTML ya dibujado; luego el navegador lo <em>hidrata</em>, es decir, React se engancha a ese HTML para hacerlo interactivo. Lo hacen frameworks como Next.js y es un módulo minor del subject.</p>
+    <p>Superfocus es una <strong>SPA</strong> (<em>Single Page Application</em>): el HTML llega una vez y después solo viaja JSON. Incluso con SSR no se recompila nada por petición: se ejecuta código ya construido.</p>
+  </div>
+  <div class="panel card">
+    <div class="eyebrow">Fuera de este mapa</div>
+    <h2>Lo que hemos dejado fuera a propósito</h2>
+    <ul>
+      <li><strong>Docker</strong>: contenedores, Compose y Makefile. Cada caja del servidor es un contenedor, pero aquí no importa. Ver U7.</li>
+      <li><strong>Modo desarrollo</strong>: <code>npm run dev</code> sirve el front sin empaquetar en <code>:5173</code> y recarga al guardar. Ver U7.</li>
+      <li><strong>DNS, TCP y TLS</strong> en detalle: esquema ③ y U1.</li>
+      <li><strong>WebSockets</strong> para tiempo real: esquema ⑤.</li>
+    </ul>
+  </div>
+</section>
+</div>
+
+<div class="view" id="view-construccion" hidden>
+<figure class="panel">
+  <div class="diagram">
+  <svg id="bmap" viewBox="0 0 1200 600" role="img" aria-label="Construcción del front y del back. En la etapa de construcción, Node.js ejecuta npm ci para descargar dependencias del registro de npm. En el front, tsc comprueba tipos y vite build genera dist con index.html, un .js, un .css e imágenes, que se copian a la imagen de nginx sin Node. En el back, nest build genera un .js por cada .ts, y la imagen final contiene Node, dist y las dependencias de producción, y recibe la configuración de .env al arrancar.">
+    <defs>
+      <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker>
+    </defs>
+    <text class="ztitle stg-repo" x="20" y="44">REPO</text>
+    <text class="zsub" x="20" y="62">ficheros de texto</text>
+    <rect class="stage-build" x="200" y="24" width="755" height="566" rx="14"/>
+    <text class="ztitle stg-build" x="218" y="48">ETAPA DE CONSTRUCCIÓN</text>
+    <text class="zsub" x="218" y="66">imagen node:24-alpine · Node.js como herramienta (1/2) · se descarta al terminar</text>
+    <rect class="stage-final" x="970" y="24" width="215" height="566" rx="14"/>
+    <text class="ztitle stg-final" x="985" y="48">IMAGEN FINAL</text>
+    <text class="zsub" x="985" y="66">lo único que se ejecuta</text>
+    <text class="lane" x="20" y="100">FRONT</text>
+    <text class="lane" x="20" y="360">BACK</text>
+
+    <!-- flechas front -->
+    <g class="ar" data-id="b-a-fsrc"><line x1="185" y1="185" x2="216" y2="185" marker-end="url(#ah2)"/></g>
+    <g class="ar" data-id="b-a-fnpm"><line x1="360" y1="185" x2="386" y2="185" marker-end="url(#ah2)"/></g>
+    <g class="ar" data-id="b-a-ftsc"><line x1="530" y1="185" x2="556" y2="185" marker-end="url(#ah2)"/><text class="al" x="543" y="176" text-anchor="middle">&amp;&amp;</text></g>
+    <g class="ar" data-id="b-a-fvite"><line x1="760" y1="185" x2="786" y2="185" marker-end="url(#ah2)"/></g>
+    <g class="ar" data-id="b-a-fimg"><line x1="940" y1="185" x2="981" y2="185" marker-end="url(#ah2)"/><text class="al" x="960" y="176" text-anchor="middle">COPY</text></g>
+    <!-- registro -->
+    <g class="ar" data-id="b-a-regf"><line x1="290" y1="283" x2="290" y2="234" marker-end="url(#ah2)"/><text class="al" x="298" y="262">descarga</text></g>
+    <g class="ar" data-id="b-a-regb"><line x1="290" y1="335" x2="290" y2="391" marker-end="url(#ah2)"/><text class="al" x="298" y="368">descarga</text></g>
+    <!-- flechas back -->
+    <g class="ar" data-id="b-a-bsrc"><line x1="185" y1="440" x2="216" y2="440" marker-end="url(#ah2)"/></g>
+    <g class="ar" data-id="b-a-bnpm"><line x1="360" y1="440" x2="386" y2="440" marker-end="url(#ah2)"/></g>
+    <g class="ar" data-id="b-a-bnest"><line x1="760" y1="440" x2="786" y2="440" marker-end="url(#ah2)"/></g>
+    <g class="ar" data-id="b-a-bimg"><line x1="940" y1="440" x2="981" y2="440" marker-end="url(#ah2)"/><text class="al" x="960" y="431" text-anchor="middle">COPY</text></g>
+    <g class="ar" data-id="b-a-env"><line x1="1077" y1="528" x2="1077" y2="514" marker-end="url(#ah2)"/></g>
+
+    <!-- nodos front -->
+    <g class="nd" data-id="c-websrc" tabindex="0" role="button" aria-label="Fuentes del front"><rect class="box" x="20" y="110" width="165" height="150" rx="8"/>
+      <text class="t" x="32" y="134">Fuentes del front</text>
+      <text class="r sm" x="32" y="158">index.html</text><text class="r sm" x="32" y="177">src/*.tsx · *.css</text><text class="r sm" x="32" y="196">src/assets/*.png</text><text class="r sm" x="32" y="215">public/</text><text class="r sm" x="32" y="234">package*.json</text></g>
+    <g class="nd" data-id="c-npm-web" tabindex="0" role="button" aria-label="npm ci del front"><rect class="box" x="220" y="140" width="140" height="90" rx="8"/>
+      <text class="t" x="232" y="166">npm ci</text><text class="s" x="232" y="188">lockfile →</text><text class="s" x="232" y="206">node_modules/</text></g>
+    <g class="nd" data-id="c-tsc" tabindex="0" role="button" aria-label="tsc -b"><rect class="box" x="390" y="140" width="140" height="90" rx="8"/>
+      <text class="t" x="402" y="166">tsc -b</text><text class="s" x="402" y="188">comprueba tipos</text><text class="s" x="402" y="206">no genera nada</text></g>
+    <g class="nd" data-id="c-vite" tabindex="0" role="button" aria-label="vite build"><rect class="box" x="560" y="110" width="200" height="150" rx="8"/>
+      <text class="t" x="572" y="134">vite build</text>
+      <text class="s" x="572" y="160">1 · sigue los import</text><text class="s" x="572" y="182">2 · TS y JSX → JS</text><text class="s" x="572" y="204">3 · clases → CSS</text><text class="s" x="572" y="226">4 · empaqueta y minifica</text></g>
+    <g class="nd" data-id="c-webdist" tabindex="0" role="button" aria-label="dist del front"><rect class="box" x="790" y="110" width="150" height="150" rx="8"/>
+      <text class="t" x="802" y="134">dist/</text>
+      <text class="r sm" x="802" y="158">index.html</text><text class="r sm" x="802" y="177">assets/*.js</text><text class="r sm" x="802" y="196">assets/*.css</text><text class="r sm" x="802" y="215">assets/*.png</text><text class="r sm" x="802" y="234">favicon.svg …</text></g>
+    <g class="nd" data-id="c-nginximg" tabindex="0" role="button" aria-label="Imagen de nginx"><rect class="box" x="985" y="110" width="185" height="150" rx="8"/>
+      <text class="t" x="997" y="134">Imagen de nginx</text>
+      <text class="r sm" x="997" y="158">nginx:alpine</text><text class="r sm" x="997" y="177">+ dist/</text><text class="r sm" x="997" y="196">+ certificado</text><text class="s" x="997" y="226">sin Node</text><text class="s" x="997" y="244">sin node_modules</text></g>
+
+    <g class="nd" data-id="c-registry" tabindex="0" role="button" aria-label="Registro de npm"><rect class="box" x="220" y="285" width="140" height="48" rx="8"/>
+      <text class="t" x="232" y="305">registro npm</text><text class="r sm" x="232" y="323">npmjs.org</text></g>
+
+    <!-- nodos back -->
+    <g class="nd" data-id="c-apisrc" tabindex="0" role="button" aria-label="Fuentes del back"><rect class="box" x="20" y="370" width="165" height="140" rx="8"/>
+      <text class="t" x="32" y="394">Fuentes del back</text>
+      <text class="r sm" x="32" y="418">src/main.ts</text><text class="r sm" x="32" y="437">*.module.ts</text><text class="r sm" x="32" y="456">*.controller.ts</text><text class="r sm" x="32" y="475">*.service.ts</text><text class="r sm" x="32" y="494">package*.json</text></g>
+    <g class="nd" data-id="c-npm-api" tabindex="0" role="button" aria-label="npm ci del back"><rect class="box" x="220" y="395" width="140" height="90" rx="8"/>
+      <text class="t" x="232" y="421">npm ci</text><text class="s" x="232" y="443">lockfile →</text><text class="s" x="232" y="461">node_modules/</text></g>
+    <g class="nd" data-id="c-nest" tabindex="0" role="button" aria-label="nest build"><rect class="box" x="390" y="395" width="370" height="90" rx="8"/>
+      <text class="t" x="402" y="421">nest build</text><text class="s" x="402" y="443">compila con tsc: un .js por cada .ts</text><text class="s" x="402" y="461">mismas carpetas · sin empaquetar · sin minificar</text></g>
+    <g class="nd" data-id="c-apidist" tabindex="0" role="button" aria-label="dist del back"><rect class="box" x="790" y="370" width="150" height="140" rx="8"/>
+      <text class="t" x="802" y="394">dist/</text>
+      <text class="r sm" x="802" y="418">main.js</text><text class="r sm" x="802" y="437">app.module.js</text><text class="r sm" x="802" y="456">users/*.js</text><text class="r sm" x="802" y="475">…</text></g>
+    <g class="nd nodejs" data-id="c-apiimg" tabindex="0" role="button" aria-label="Imagen del backend"><rect class="box" x="985" y="370" width="185" height="140" rx="8"/>
+      <text class="t" x="997" y="394">Imagen del back</text>
+      <text class="r sm" x="997" y="418">node:24-alpine</text><text class="r sm" x="997" y="437">+ dist/</text><text class="r sm" x="997" y="456">+ node_modules</text><text class="s" x="997" y="474">(solo producción)</text><text class="r sm" x="997" y="496">node dist/main.js</text>
+      <g class="badge"><rect x="1118" y="362" width="44" height="16" rx="4"/><text x="1140" y="374" text-anchor="middle">2/2</text></g></g>
+    <g class="nd" data-id="c-env" tabindex="0" role="button" aria-label="Variables de entorno desde .env"><rect class="box" x="985" y="530" width="185" height="48" rx="8"/>
+      <text class="t" x="997" y="550">.env</text><text class="s" x="997" y="568">al arrancar → process.env</text></g>
+
+    <g id="bpkts"></g>
+  </svg>
+  </div>
+  <div class="story" id="bstory" aria-live="polite"></div>
+</figure>
+
+<section>
+  <h2 class="section">Front y back, lado a lado</h2>
+  <p class="lead">Empiezan igual (código TypeScript y <code>npm ci</code>) y terminan en sitios opuestos.</p>
+  <div class="panel tablewrap">
+  <table class="cmp">
+    <thead><tr><th></th><th>Front</th><th>Back</th></tr></thead>
+    <tbody>
+      <tr><th>Herramienta</th><td><code>tsc -b</code> (solo comprueba) + <code>vite build</code></td><td><code>nest build</code> (tsc comprueba y genera)</td></tr>
+      <tr><th>Qué produce</th><td>Pocos ficheros: un .js, un .css, un index.html, imágenes</td><td>Un .js por cada .ts, mismo árbol de carpetas</td></tr>
+      <tr><th>Empaqueta y minifica</th><td>Sí: viaja por la red a cada usuario</td><td>No: nunca sale del servidor</td></tr>
+      <tr><th>node_modules al ejecutar</th><td>No: lo necesario ya está dentro del bundle</td><td>Sí: dist/ hace referencia a los paquetes</td></tr>
+      <tr><th>Quién lo ejecuta</th><td>El navegador de cada usuario</td><td>Node.js en el servidor (2/2)</td></tr>
+      <tr><th>Configuración</th><td><code>VITE_*</code>: se escribe dentro del bundle al construir. Pública</td><td><code>process.env</code>: llega al arrancar desde <code>.env</code>. Privada</td></tr>
+      <tr><th>Imagen final</th><td>nginx + ficheros. Sin Node</td><td>Node + dist/ + dependencias de producción</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="panel card">
+  <div class="eyebrow">Prueba tú mismo · 10 min</div>
+  <h2>Construye el front fuera de Docker y mira qué sale</h2>
+  <p>En <code>srcs/apps/web</code>, con Node 24 instalado con nvm:</p>
+<pre class="wire">npm ci                      # instala exactamente lo del lockfile
+npm run build               # tsc -b &amp;&amp; vite build
+ls -la dist dist/assets     # lo que se publica
+cat dist/index.html         # mira a qué ficheros apunta ahora
+grep -o '.\{60\}LOGIN.\{60\}' dist/assets/*.js   # tu JSX, ya convertido</pre>
+  <ol class="tasks">
+    <li>Compara el <code>index.html</code> de la raíz con el de <code>dist/</code>. ¿Qué línea ha desaparecido y cuáles han aparecido?</li>
+    <li>Cambia el texto <code>LOGIN</code>, vuelve a construir y compara el nombre del <code>.js</code>. ¿Por qué ha cambiado? ¿Y el del <code>.css</code>?</li>
+    <li>Añade a <code>LoginScreen.tsx</code> una variable con un tipo incorrecto (<code>const n: number = "hola"</code>) y construye. ¿Qué herramienta falla? ¿Llega a ejecutarse Vite?</li>
+    <li>Busca en el <code>.js</code> generado alguna anotación de tipo de TypeScript. ¿Por qué no encuentras ninguna?</li>
+  </ol>
+  <details><summary>Soluciones</summary>
+    <p>1. Desaparece <code>&lt;script type="module" src="/src/main.tsx"&gt;</code>, que apuntaba al código fuente. Aparecen un <code>&lt;script&gt;</code> que apunta a <code>/assets/index-&lt;hash&gt;.js</code> y un <code>&lt;link rel="stylesheet"&gt;</code> a <code>/assets/index-&lt;hash&gt;.css</code>.</p>
+    <p>2. El hash se calcula a partir del contenido: al cambiar el código cambia el .js y, con él, su nombre. El .css no cambia, porque no has tocado ninguna clase.</p>
+    <p>3. Falla <code>tsc -b</code> con un error de tipos y termina con un código distinto de 0; el <code>&amp;&amp;</code> impide que se ejecute Vite y no se genera un <code>dist/</code> nuevo.</p>
+    <p>4. Porque los tipos se borran al transformar el código. En ejecución no existen: por eso el backend tiene que validar los datos que recibe aunque estén «tipados».</p>
+  </details>
+  <div class="sec"><b>Seguridad</b>Esto se ejecuta en tu máquina: <code>npm ci</code> descarga y ejecuta código de terceros con tus permisos. Hazlo solo en el repo del equipo, con el lockfile revisado, y nunca con <code>sudo</code>.</div>
+</section>
+</div>
+
+<div class="view" id="view-carga" hidden>
+<figure class="panel">
+  <div class="diagram seqhead">
+  <svg id="lhead" viewBox="0 0 1200 78" role="img" aria-label="Participantes: el navegador, el DNS, nginx, el backend NestJS y PostgreSQL">
+    <text class="zsub" x="20" y="30">dentro del navegador</text>
+    <text class="zsub" x="20" y="48">(sin tocar la red)</text>
+    <g class="nd" data-id="s-nav" tabindex="0" role="button" aria-label="Navegador"><rect class="box" x="175" y="14" width="150" height="54" rx="8"/><text class="t" x="250" y="38" text-anchor="middle">Navegador</text><text class="p" x="250" y="56" text-anchor="middle">Chrome</text></g>
+    <g class="nd" data-id="s-dns" tabindex="0" role="button" aria-label="DNS"><rect class="box" x="355" y="14" width="130" height="54" rx="8"/><text class="t" x="420" y="38" text-anchor="middle">DNS</text><text class="p" x="420" y="56" text-anchor="middle">/etc/hosts</text></g>
+    <g class="nd" data-id="nginx" tabindex="0" role="button" aria-label="nginx"><rect class="box" x="525" y="14" width="150" height="54" rx="8"/><text class="t" x="600" y="38" text-anchor="middle">nginx</text><text class="p" x="600" y="56" text-anchor="middle">:443</text></g>
+    <g class="nd nodejs" data-id="backend" tabindex="0" role="button" aria-label="Backend NestJS"><rect class="box" x="735" y="14" width="170" height="54" rx="8"/><text class="t" x="820" y="38" text-anchor="middle">NestJS</text><text class="p" x="820" y="56" text-anchor="middle">:3000</text></g>
+    <g class="nd" data-id="postgres" tabindex="0" role="button" aria-label="PostgreSQL"><rect class="box" x="985" y="14" width="150" height="54" rx="8"/><text class="t" x="1060" y="38" text-anchor="middle">PostgreSQL</text><text class="p" x="1060" y="56" text-anchor="middle">:5432</text></g>
+  </svg>
+  </div>
+  <div class="diagram seqbody" id="lbox">
+    <svg id="lseq" viewBox="0 0 1200 900" role="img" aria-label="Diagrama de secuencia de la primera visita: DNS, conexión TCP y TLS, descarga de index.html y del bundle, comprobación de sesión con respuesta 401, login con creación de sesión y cookie, y carga del perfil."></svg>
+  </div>
+  <div class="story" id="lstory" aria-live="polite"></div>
+</figure>
+
+<section class="panel card">
+  <div class="eyebrow">Míralo en DevTools · 15 min</div>
+  <h2>Sigue el recorrido en una web real</h2>
+  <p>Cuando el backend esté listo podréis hacerlo con Superfocus. Mientras tanto, cualquier web con login sirve para ver las mismas piezas.</p>
+  <ol class="tasks">
+    <li>Abre una ventana de incógnito, DevTools (<code>F12</code>) y la pestaña <strong>Network</strong>. Marca <strong>Preserve log</strong> para que no se borre al cambiar de página.</li>
+    <li>Carga la web y ordena por la columna <em>Waterfall</em>. Localiza la petición del documento, las del .js y el .css, y las primeras de tipo <em>Fetch/XHR</em>. ¿Cuáles empiezan antes de que termine la anterior?</li>
+    <li>Inicia sesión. En la petición de login, busca en <em>Response Headers</em> la cabecera <code>Set-Cookie</code> y anota sus atributos.</li>
+    <li>Ve a <strong>Application → Cookies</strong>. Comprueba si la cookie tiene marcada la columna <em>HttpOnly</em>. En la consola, escribe <code>document.cookie</code>: ¿aparece?</li>
+    <li>Recarga la página. En la columna <em>Size</em>, ¿qué ficheros vienen de <em>(memory cache)</em> o <em>(disk cache)</em>, y cuáles devuelven <code>304</code>?</li>
+  </ol>
+  <div class="sec"><b>Seguridad</b>No copies tus cookies de sesión de webs reales en ningún sitio: quien tenga esa cookie es tú para ese servidor hasta que caduque.</div>
+</section>
+
+<section class="panel card">
+  <div class="eyebrow">Comprueba</div>
+  <h2>Cuatro preguntas antes de seguir</h2>
+  <details><summary>Visitas <code>https://localhost/perfil</code>. ¿Por qué nginx responde <code>200</code> y no <code>404</code>, si no existe ningún fichero <code>perfil</code>?</summary><p>Por <code>try_files $uri $uri/ /index.html</code>: si el fichero no existe, nginx devuelve <code>index.html</code>. Las rutas como <code>/perfil</code> las resuelve React en el navegador, no nginx.</p></details>
+  <details><summary>¿Por qué React tiene que preguntar <code>/api/users/me</code> en lugar de mirar si existe la cookie?</summary><p>Porque la cookie es <code>HttpOnly</code> y el JavaScript de la página no puede leerla. Y aunque pudiera, solo el servidor sabe si esa sesión sigue siendo válida (puede haber caducado o haberse cerrado desde otro sitio).</p></details>
+  <details><summary>Tras el login, React cambia de <code>/login</code> a <code>/perfil</code>. ¿Cuántas peticiones a nginx genera ese cambio de pantalla?</summary><p>Ninguna para el HTML: el router cambia la URL con la History API y pinta la nueva pantalla con el JavaScript que ya tiene. Solo hay una petición, la de los datos: <code>GET /api/users/me</code>.</p></details>
+  <details><summary>Un atacante consigue ejecutar JavaScript en vuestra página (XSS). ¿Puede robar la cookie de sesión? ¿Puede hacer daño igualmente?</summary><p>No puede leerla, gracias a <code>HttpOnly</code>. Pero sí puede hacer peticiones a <code>/api/...</code> desde la propia página, y el navegador les añadirá la cookie. <code>HttpOnly</code> limita el daño, no lo elimina: evitar el XSS sigue siendo imprescindible.</p></details>
+</section>
+</div>
+
+<div class="view" id="view-interaccion" hidden>
+<figure class="panel">
+  <div class="diagram">
+  <svg id="imap" viewBox="0 0 1200 600" role="img" aria-label="Terminar un pomodoro. En el navegador, el temporizador llega a cero y su manejador envía POST /api/focus-sessions con la duración. nginx lo reenvía al backend. En NestJS la petición atraviesa middleware, guard, pipe con DTO, controller, service y ORM, que ejecuta una transacción en PostgreSQL. La respuesta 200 con JSON vuelve al navegador, que actualiza el estado de React y redibuja solo lo que cambia en el DOM. Los errores de guard, pipe y service van al filtro de excepciones, que responde 401, 400 o 500.">
+    <defs>
+      <marker id="ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker>
+      <marker id="ah4e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah-pkt" d="M0,0 L10,5 L0,10 z"/></marker>
+    </defs>
+    <g class="zone browser"><rect class="zbg" x="20" y="20" width="320" height="560" rx="14"/>
+      <text class="ztitle" x="40" y="48">NAVEGADOR</text><text class="zsub" x="40" y="66">la app ya cargada</text></g>
+    <g class="zone server"><rect class="zbg" x="365" y="20" width="815" height="560" rx="14"/>
+      <text class="ztitle" x="385" y="48">SERVIDOR</text></g>
+    <rect class="netbox" x="530" y="74" width="360" height="446" rx="10"/>
+    <text class="netlabel" x="545" y="510">dentro de NestJS · en este orden</text>
+
+    <!-- flechas navegador -->
+    <g class="ar" data-id="i-a-tick"><line x1="180" y1="148" x2="180" y2="166" marker-end="url(#ah4)"/></g>
+    <g class="ar" data-id="i-a-set"><line x1="180" y1="362" x2="180" y2="416" marker-end="url(#ah4)"/><text class="al" x="190" y="394">re-render</text></g>
+    <!-- petición -->
+    <g class="ar https" data-id="i-a-req"><line x1="320" y1="198" x2="377" y2="198" marker-end="url(#ahd)"/><text class="al strong" x="348" y="189" text-anchor="middle">POST</text></g>
+    <g class="ar" data-id="i-a-proxy"><path d="M490,198 H520 V116 H556" marker-end="url(#ah4)"/><text class="al" x="508" y="160" text-anchor="middle" transform="rotate(-90 508 160)">proxy</text></g>
+    <!-- cadena NestJS -->
+    <g class="ar" data-id="i-a-c1"><line x1="640" y1="142" x2="640" y2="158" marker-end="url(#ah4)"/></g>
+    <g class="ar" data-id="i-a-c2"><line x1="640" y1="214" x2="640" y2="230" marker-end="url(#ah4)"/></g>
+    <g class="ar" data-id="i-a-c3"><line x1="640" y1="286" x2="640" y2="302" marker-end="url(#ah4)"/></g>
+    <g class="ar" data-id="i-a-c4"><line x1="640" y1="358" x2="640" y2="374" marker-end="url(#ah4)"/></g>
+    <g class="ar" data-id="i-a-c5"><line x1="640" y1="430" x2="640" y2="446" marker-end="url(#ah4)"/></g>
+    <g class="ar" data-id="i-a-ret"><line x1="800" y1="450" x2="800" y2="434" marker-end="url(#ah4)" stroke-dasharray="4 3"/><line x1="800" y1="378" x2="800" y2="362" marker-end="url(#ah4)" stroke-dasharray="4 3"/><text class="al" x="810" y="372">return</text></g>
+    <!-- base de datos -->
+    <g class="ar" data-id="i-a-sql"><line x1="864" y1="476" x2="946" y2="476" marker-start="url(#ah4)" marker-end="url(#ah4)"/><text class="al" x="905" y="467" text-anchor="middle">SQL</text></g>
+    <!-- respuesta -->
+    <g class="ar https" data-id="i-a-res"><path d="M556,332 H494" marker-end="url(#ahd)"/><text class="al strong" x="525" y="323" text-anchor="middle">201</text></g>
+    <g class="ar https" data-id="i-a-res2"><line x1="377" y1="334" x2="324" y2="334" marker-end="url(#ahd)"/><text class="al strong" x="350" y="325" text-anchor="middle">JSON</text></g>
+    <!-- errores -->
+    <g class="ar err" data-id="i-a-err"><path d="M860,188 H910 V146 H946 M860,260 H910 V188 M860,404 H910 V260" marker-end="url(#ah4e)"/><text class="al errl" x="918" y="300">excepción</text></g>
+    <g class="ar err" data-id="i-a-errout"><path d="M1060,110 V40 H470 V86" marker-end="url(#ah4e)"/><text class="al errl" x="765" y="35" text-anchor="middle">401 · 400 · 500 con JSON de error</text></g>
+
+    <!-- nodos navegador -->
+    <g class="nd" data-id="i-timer" tabindex="0" role="button" aria-label="Componente temporizador"><rect class="box" x="40" y="90" width="280" height="56" rx="8"/>
+      <text class="t" x="54" y="114">Componente Temporizador</text><text class="s" x="54" y="134">mide el tiempo · 25 min</text></g>
+    <g class="nd" data-id="i-handler" tabindex="0" role="button" aria-label="Manejador y fetch"><rect class="box" x="40" y="170" width="280" height="56" rx="8"/>
+      <text class="t" x="54" y="194">Manejador onComplete</text><text class="s" x="54" y="214">fetch() con el cuerpo en JSON</text></g>
+    <g class="nd" data-id="i-state" tabindex="0" role="button" aria-label="Estado de React"><rect class="box" x="40" y="306" width="280" height="56" rx="8"/>
+      <text class="t" x="54" y="330">Estado de React</text><text class="s" x="54" y="350">xp: 1340 · nivel: 7 · temporizador</text></g>
+    <g class="nd" data-id="i-dom" tabindex="0" role="button" aria-label="DOM"><rect class="box" x="40" y="420" width="280" height="56" rx="8"/>
+      <text class="t" x="54" y="444">DOM</text><text class="s" x="54" y="464">cambian 3 nodos, no la página</text></g>
+
+    <!-- nginx -->
+    <g class="nd" data-id="nginx" tabindex="0" role="button" aria-label="nginx"><rect class="box" x="381" y="90" width="109" height="290" rx="8"/>
+      <text class="t" x="435" y="236" text-anchor="middle">nginx</text><text class="p" x="435" y="256" text-anchor="middle">:443</text></g>
+
+    <!-- NestJS -->
+    <g class="nd" data-id="i-mw" tabindex="0" role="button" aria-label="Middleware"><rect class="box" x="560" y="90" width="300" height="52" rx="8"/>
+      <text class="t" x="574" y="113">Middleware</text><text class="s" x="574" y="132">JSON del cuerpo · cookies</text></g>
+    <g class="nd" data-id="s-guard" tabindex="0" role="button" aria-label="Guard"><rect class="box" x="560" y="162" width="300" height="52" rx="8"/>
+      <text class="t" x="574" y="185">Guard</text><text class="s" x="574" y="204">¿quién eres? → usuario</text></g>
+    <g class="nd" data-id="i-pipe" tabindex="0" role="button" aria-label="Pipe y DTO"><rect class="box" x="560" y="234" width="300" height="52" rx="8"/>
+      <text class="t" x="574" y="257">Pipe + DTO</text><text class="s" x="574" y="276">¿los datos son válidos?</text></g>
+    <g class="nd" data-id="i-ctrl" tabindex="0" role="button" aria-label="Controller"><rect class="box" x="560" y="306" width="300" height="52" rx="8"/>
+      <text class="t" x="574" y="329">Controller</text><text class="r" x="574" y="348">@Post()</text></g>
+    <g class="nd" data-id="i-svc" tabindex="0" role="button" aria-label="Service"><rect class="box" x="560" y="378" width="300" height="52" rx="8"/>
+      <text class="t" x="574" y="401">Service</text><text class="s" x="574" y="420">reglas de la app · calcula la XP</text></g>
+    <g class="nd" data-id="i-orm" tabindex="0" role="button" aria-label="ORM"><rect class="box" x="560" y="450" width="300" height="52" rx="8"/>
+      <text class="t" x="574" y="473">ORM</text><text class="s" x="574" y="492">objetos ↔ SQL · transacción</text></g>
+
+    <g class="nd" data-id="postgres" tabindex="0" role="button" aria-label="PostgreSQL"><rect class="box" x="950" y="440" width="210" height="72" rx="8"/>
+      <text class="t" x="964" y="466">PostgreSQL</text><text class="s" x="964" y="488">focus_sessions · users</text></g>
+    <g class="nd" data-id="i-filter" tabindex="0" role="button" aria-label="Filtro de excepciones"><rect class="box errbox" x="950" y="110" width="210" height="72" rx="8"/>
+      <text class="t" x="964" y="136">Filtro de excepciones</text><text class="s" x="964" y="158">error → respuesta JSON</text></g>
+
+    <g id="ipkts"></g>
+  </svg>
+  </div>
+  <div class="story" id="istory" aria-live="polite"></div>
+</figure>
+
+<section>
+  <h2 class="section">Qué puede salir mal, y quién lo detecta</h2>
+  <p class="lead">Cada capa tiene una pregunta y una respuesta de error. El front debe saber qué hacer con cada una.</p>
+  <div class="panel tablewrap">
+  <table class="cmp">
+    <thead><tr><th>Dónde</th><th>Qué pasa</th><th>Respuesta</th><th>Qué hace el front</th></tr></thead>
+    <tbody>
+      <tr><th>Red</th><td>Sin conexión, o nginx no responde</td><td>Ninguna: <code>fetch</code> lanza un error</td><td>Avisar y permitir reintentar sin perder el pomodoro</td></tr>
+      <tr><th>nginx</th><td>El backend está caído</td><td><code>502 Bad Gateway</code> (página HTML de nginx)</td><td>Mensaje genérico. Ojo: no es JSON</td></tr>
+      <tr><th>Middleware</th><td>El cuerpo no es JSON válido</td><td><code>400</code></td><td>Es un fallo del propio front: registrarlo</td></tr>
+      <tr><th>Guard</th><td>Sin cookie o sesión caducada</td><td><code>401</code></td><td>Ir al login y, después, volver aquí</td></tr>
+      <tr><th>Pipe</th><td>Duración fuera de rango, etiqueta demasiado larga o campos de más</td><td><code>400</code> con la lista de errores</td><td>Es un fallo del propio front o una petición fabricada: registrarlo</td></tr>
+      <tr><th>Cualquiera</th><td>Error no previsto (fallo de la base de datos, un bug)</td><td><code>500</code> con mensaje genérico</td><td>Mensaje genérico; el detalle va a los logs del servidor</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="panel card">
+  <div class="eyebrow">Comprueba</div>
+  <h2>Cuatro preguntas antes de seguir</h2>
+  <details><summary>Con <code>curl</code> y tu propia cookie envías el <code>POST</code> con <code>"userId": 5</code> en el cuerpo, para apuntarle la sesión a otro usuario. ¿Qué capa lo detiene?</summary><p>El pipe: <code>userId</code> no está en el DTO y el pipe rechaza los campos de más con un <code>400</code>. Y aunque no los rechazara, el controller no lo usaría: el usuario sale siempre de la sesión que comprobó el guard.</p></details>
+  <details><summary>El backend recibe <code>"durationMin": 25</code>. ¿Qué puede comprobar y qué no?</summary><p>Puede comprobar que es un entero dentro de un rango posible (el DTO) y rechazar el resto. No puede comprobar que sea cierto: el tiempo lo ha medido el navegador. Es una decisión del equipo, que confía en el front para este dato.</p></details>
+  <details><summary>El service guarda la sesión y suma la XP del usuario. ¿Qué pasa si la segunda consulta falla y no hay transacción?</summary><p>Quedaría guardada una sesión sin su XP, y los datos dejarían de cuadrar entre sí. Con una transacción, si falla cualquiera de las dos, se deshacen ambas.</p></details>
+  <details><summary>Tras la respuesta, ¿descarga el navegador algún HTML? ¿Se vuelve a pintar la página entera?</summary><p>No a las dos. Llega JSON, React actualiza su estado, compara lo que debería verse con lo que había y cambia solo los nodos del DOM afectados: la barra de XP, el número de nivel y el temporizador.</p></details>
+</section>
+</div>
+
+<div class="view" id="view-repaso" hidden>
+<section class="intro panel card">
+  <div class="eyebrow">⓪ Repaso · para quien hizo ft_irc o webserv hace tiempo</div>
+  <h2>Lo que ya sabes y lo que cambia</h2>
+  <p>ft_irc y webserv eran servidores TCP que hablaban un protocolo de texto. HTTP es exactamente eso. Lo que cambia no es la red, sino tres cosas de encima: el formato de los mensajes, quién puede hablar y cuándo, y dónde se guarda quién eres.</p>
+</section>
+
+<figure class="panel">
+  <div class="diagram">
+  <svg id="layers" viewBox="0 0 1200 420" role="img" aria-label="Comparación de capas entre ft_irc y Superfocus. IP y TCP son idénticas y se usan con las mismas llamadas de sockets. Superfocus añade TLS para cifrar. En la capa de aplicación, IRC usa líneas de texto terminadas en CRLF y HTTP usa peticiones y respuestas con cabeceras y cuerpo.">
+    <text class="ztitle lay-l" x="40" y="40">ft_irc</text>
+    <text class="ztitle lay-r" x="800" y="40">SUPERFOCUS</text>
+    <text class="ztitle lay-m" x="600" y="40" text-anchor="middle">QUÉ CAMBIA</text>
+
+    <g class="layer"><rect class="lbox" x="40" y="60" width="360" height="72" rx="8"/>
+      <text class="lt" x="56" y="88">Aplicación · IRC</text><text class="lp" x="56" y="112">líneas de texto terminadas en \r\n</text></g>
+    <g class="layer"><rect class="lbox" x="800" y="60" width="360" height="72" rx="8"/>
+      <text class="lt" x="816" y="88">Aplicación · HTTP</text><text class="lp" x="816" y="112">petición → respuesta · cabeceras + cuerpo</text></g>
+    <text class="lm strong" x="600" y="88" text-anchor="middle">el formato y las reglas de la conversación</text>
+    <text class="lm" x="600" y="110" text-anchor="middle">esto es lo nuevo de verdad</text>
+
+    <g class="layer"><rect class="lbox ghost" x="40" y="148" width="360" height="56" rx="8"/>
+      <text class="lp" x="56" y="181">sin cifrar</text></g>
+    <g class="layer"><rect class="lbox tls" x="800" y="148" width="360" height="56" rx="8"/>
+      <text class="lt" x="816" y="172">TLS</text><text class="lp" x="816" y="192">cifrado + certificado · la «S» de HTTPS</text></g>
+    <text class="lm strong" x="600" y="172" text-anchor="middle">capa nueva entre TCP y HTTP</text>
+    <text class="lm" x="600" y="192" text-anchor="middle">la hace nginx: el backend nunca la ve</text>
+
+    <g class="layer"><rect class="lbox same" x="40" y="220" width="360" height="72" rx="8"/>
+      <text class="lt" x="56" y="248">TCP · puerto 6667</text><text class="lp" x="56" y="272">canal fiable de bytes</text></g>
+    <g class="layer"><rect class="lbox same" x="800" y="220" width="360" height="72" rx="8"/>
+      <text class="lt" x="816" y="248">TCP · puerto 443</text><text class="lp" x="816" y="272">canal fiable de bytes</text></g>
+    <text class="lm strong" x="600" y="248" text-anchor="middle">nada: socket() · bind() · listen() · accept()</text>
+    <text class="lm" x="600" y="270" text-anchor="middle">connect() · recv() · send() · poll()</text>
+
+    <g class="layer"><rect class="lbox same" x="40" y="308" width="360" height="56" rx="8"/>
+      <text class="lt" x="56" y="341">IP · qué máquina</text></g>
+    <g class="layer"><rect class="lbox same" x="800" y="308" width="360" height="56" rx="8"/>
+      <text class="lt" x="816" y="341">IP · qué máquina</text></g>
+    <text class="lm strong" x="600" y="341" text-anchor="middle">nada</text>
+
+    <line class="link" x1="400" y1="256" x2="470" y2="256"/><line class="link" x1="730" y1="256" x2="800" y2="256"/>
+    <line class="link" x1="400" y1="336" x2="560" y2="336"/><line class="link" x1="640" y1="336" x2="800" y2="336"/>
+    <text class="lm" x="600" y="400" text-anchor="middle">Las capas de abajo no saben nada de las de arriba: TCP transporta bytes sin saber si son IRC o HTTP.</text>
+  </svg>
+  </div>
+  <figcaption>Todo lo que programaste con sockets sigue valiendo. En Superfocus no lo escribiréis a mano: nginx y Node.js ya lo hacen, pero por debajo son las mismas llamadas.</figcaption>
+</figure>
+
+<section class="duo">
+  <article class="panel card">
+    <div class="eyebrow">Lo que te costó en ft_irc</div>
+    <h2>TCP entrega bytes, no mensajes</h2>
+    <p>Un <code>recv()</code> puede devolver medio comando o tres comandos juntos. Por eso en ft_irc guardabas un búfer por cliente y cortabas por <code>\r\n</code>. A eso se le llama <strong>delimitar</strong> los mensajes (<em>framing</em>), y cada protocolo lo resuelve a su manera.</p>
+    <p>HTTP lo resuelve en dos tiempos: las cabeceras terminan en una línea vacía (<code>\r\n\r\n</code>), y el tamaño del cuerpo lo dice la cabecera <code>Content-Length</code> (o el cuerpo llega troceado con <code>Transfer-Encoding: chunked</code>).</p>
+  </article>
+  <article class="panel card">
+    <div class="eyebrow">Lo que hiciste en webserv</div>
+    <h2>Ese programa ahora es nginx</h2>
+    <p>Leer la línea de petición, leer cabeceras hasta la línea vacía, leer el cuerpo según <code>Content-Length</code>, decidir por la ruta si se sirve un fichero o se pasa a otro programa, y escribir la respuesta. Eso es lo que hace nginx con el front.</p>
+    <p>El CGI de webserv es la idea del reverse proxy: nginx no ejecuta la lógica de <code>/api/</code>, se la pasa al backend. En el backend, el módulo <code>http</code> de Node hace el mismo análisis y NestJS os entrega la petición ya convertida en un objeto.</p>
+    <div class="sec"><b>Seguridad</b>Igual que el <code>client_max_body_size</code> de webserv, nginx y NestJS deben limitar el tamaño del cuerpo. Sin límite, cualquiera puede agotar la memoria del servidor enviando un cuerpo enorme.</div>
+  </article>
+</section>
+
+<section>
+  <h2 class="section">Anatomía de un mensaje HTTP</h2>
+  <p class="lead">Una petición de Superfocus (guardar un pomodoro terminado) y su respuesta, tal como viajan dentro del canal TLS. El cuerpo largo se parte en pantalla, pero viaja en una sola línea. <span class="mono">␍␊</span> marca cada <code>\r\n</code>. Pasa el ratón o enfoca cada parte de la leyenda para resaltarla.</p>
+  <div class="anat">
+    <div class="panel msg">
+      <div class="eyebrow">Petición · navegador → servidor</div>
+<pre class="wire" id="req"><span data-p="1">POST</span> <span data-p="2">/api/focus-sessions</span> <span data-p="3">HTTP/1.1</span><i>␍␊</i>
+<span data-p="4">Host: localhost<i>␍␊</i>
+Cookie: sid=9f2c41e07b<i>␍␊</i>
+Content-Type: application/json<i>␍␊</i>
+Content-Length: 34<i>␍␊</i></span>
+<span data-p="5"><i>␍␊</i></span>
+<span data-p="6">{"durationMin":25,"tag":"estudio"}</span></pre>
+    </div>
+    <div class="panel msg">
+      <div class="eyebrow">Respuesta · servidor → navegador</div>
+<pre class="wire" id="res"><span data-p="3">HTTP/1.1</span> <span data-p="7">201 Created</span><i>␍␊</i>
+<span data-p="4">Content-Type: application/json; charset=utf-8<i>␍␊</i>
+Content-Length: 82<i>␍␊</i></span>
+<span data-p="5"><i>␍␊</i></span>
+<span data-p="6">{"id":118,"durationMin":25,"tag":"estudio","xpGained":25,"totalXp":1340,"level":7}</span></pre>
+    </div>
+  </div>
+  <ol class="legend" id="legend">
+    <li data-p="1" tabindex="0"><b>Método.</b> Qué quieres hacer: <code>GET</code> leer, <code>POST</code> crear, <code>PUT</code>/<code>PATCH</code> modificar, <code>DELETE</code> borrar. Equivale al comando de IRC (<code>JOIN</code>, <code>PRIVMSG</code>).</li>
+    <li data-p="2" tabindex="0"><b>Ruta.</b> Sobre qué recurso. Método + ruta forman un <em>endpoint</em>. nginx la usa para decidir si es un fichero o algo para el backend.</li>
+    <li data-p="3" tabindex="0"><b>Versión.</b> Nuestro nginx habla HTTP/1.1. HTTP/2 y HTTP/3 transportan lo mismo (método, ruta, cabeceras, cuerpo) en formato binario: el modelo no cambia.</li>
+    <li data-p="4" tabindex="0"><b>Cabeceras.</b> Pares <code>Nombre: valor</code>, una por línea. Dicen a quién va (<code>Host</code>), quién eres (<code>Cookie</code>), en qué formato va el cuerpo (<code>Content-Type</code>) y cuánto mide (<code>Content-Length</code>, en bytes).</li>
+    <li data-p="5" tabindex="0"><b>Línea vacía.</b> Separa cabeceras y cuerpo. Es el delimitador que buscabas en webserv.</li>
+    <li data-p="6" tabindex="0"><b>Cuerpo.</b> Los datos, aquí en JSON. Exactamente <code>Content-Length</code> bytes. Un <code>GET</code> normalmente no lleva cuerpo.</li>
+    <li data-p="7" tabindex="0"><b>Código de estado.</b> El resultado en un número: 2xx bien, 3xx ve a otro sitio, 4xx el cliente hizo algo mal (400 datos inválidos, 401 no has iniciado sesión, 403 no tienes permiso, 404 no existe), 5xx falló el servidor.</li>
+  </ol>
+  <div class="panel msg irc">
+    <div class="eyebrow">El mismo gesto en IRC</div>
+<pre class="wire">:pedro!pedro@host <span class="hl-irc">PRIVMSG</span> #42 :25 minutos de estudio<i>␍␊</i></pre>
+    <p>Una sola línea de 512 bytes como máximo, sin cabeceras ni cuerpo separados, y sin respuesta obligatoria. En HTTP cada petición recibe exactamente una respuesta.</p>
+  </div>
+  <div class="sec spaced"><b>Seguridad</b>Todo lo que hay en la petición lo escribe el cliente, y el cliente puede ser <code>curl</code> en lugar de nuestro front. Cabeceras, ruta, cuerpo y <code>Content-Length</code> pueden ser mentira. El backend no se fía de nada que no compruebe: por ejemplo, nunca acepta un <code>userId</code> en el cuerpo, lo obtiene de la sesión.</div>
+</section>
+
+<figure class="panel">
+  <div class="seqbar">
+    <div class="eyebrow">Una conversación completa</div>
+    <div class="seg" role="group" aria-label="Protocolo">
+      <button type="button" class="btn segb" data-mode="irc" aria-pressed="true">ft_irc</button>
+      <button type="button" class="btn segb" data-mode="http" aria-pressed="false">HTTP</button>
+      <button type="button" class="btn segb" data-mode="ws" aria-pressed="false">WebSocket</button>
+    </div>
+  </div>
+  <div class="diagram"><svg id="seq" viewBox="0 0 1200 500" role="img" aria-label="Diagrama de secuencia entre cliente y servidor"></svg></div>
+  <figcaption id="seqcap"></figcaption>
+</figure>
+
+<section>
+  <h2 class="section">Las diferencias, en una tabla</h2>
+  <div class="panel tablewrap">
+  <table class="cmp">
+    <thead><tr><th></th><th>ft_irc</th><th>HTTP</th><th>WebSocket</th></tr></thead>
+    <tbody>
+      <tr><th>Conexión</th><td>Abierta toda la sesión</td><td>Puede reutilizarse (<em>keep-alive</em>), pero cada petición es independiente</td><td>Abierta toda la sesión</td></tr>
+      <tr><th>Quién habla</th><td>Los dos, cuando quieran</td><td>El cliente pregunta; el servidor solo responde</td><td>Los dos, cuando quieran</td></tr>
+      <tr><th>Unidad</th><td>Línea terminada en <code>\r\n</code></td><td>Petición o respuesta: cabeceras + línea vacía + cuerpo</td><td>Frame con su longitud en la cabecera del frame</td></tr>
+      <tr><th>Quién eres</th><td>Lo sabe el servidor por el <code>fd</code> (tu objeto <code>Client</code>)</td><td>Lo dice cada petición (cookie); el servidor no lo asocia a la conexión</td><td>Se comprueba al abrir la conexión y queda asociado a ella</td></tr>
+      <tr><th>Cifrado en Superfocus</th><td>—</td><td>TLS (HTTPS)</td><td>TLS (<code>wss://</code>)</td></tr>
+      <tr><th>Para qué lo usaremos</th><td>—</td><td>Casi todo: cargar la app, login, guardar sesiones, ranking</td><td>Avisos en tiempo real y chat (esquema ⑤)</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="panel card">
+  <div class="eyebrow">Comprueba</div>
+  <h2>Cuatro preguntas antes de seguir</h2>
+  <details><summary>Un <code>recv()</code> te devuelve 1.000 bytes de una petición HTTP. ¿Cómo sabes si ya la tienes entera?</summary><p>Buscas la línea vacía (<code>\r\n\r\n</code>): ahí terminan las cabeceras. Lees <code>Content-Length</code> y esperas hasta tener ese número de bytes de cuerpo después de la línea vacía. Si no hay cuerpo ni <code>Content-Length</code>, la petición termina en la línea vacía.</p></details>
+  <details><summary>En ft_irc, tras <code>NICK</code> y <code>USER</code> no repetías tu nick en cada mensaje. ¿Por qué en HTTP hay que mandar la cookie en cada petición?</summary><p>Porque HTTP no tiene estado: cada petición se interpreta sola, aunque viaje por una conexión ya abierta (y el navegador puede abrir varias conexiones o cerrarlas cuando quiera). La cookie es lo que permite al backend saber quién eres en cada una.</p></details>
+  <details><summary>Un amigo empieza una sesión de concentración. ¿Puede el servidor avisarte por HTTP?</summary><p>No. En HTTP el servidor solo responde a peticiones. El front tendría que preguntar cada pocos segundos (<em>polling</em>) o abrir un WebSocket, que permite al servidor enviar cuando quiera, como en ft_irc.</p></details>
+  <details><summary>¿Qué código de estado esperas si envías el <code>POST</code> de arriba sin la cookie? ¿Y si la envías pero con <code>"durationMin": -5</code>?</summary><p>Sin cookie: <code>401 Unauthorized</code> (no sabemos quién eres). Con datos inválidos: <code>400 Bad Request</code>. Ambos son 4xx porque el error está en la petición, no en el servidor.</p></details>
+</section>
+</div>
+
+</div>
+
+<header class="topbar" id="topbar">
+  <button class="tb-btn" type="button" id="tb-index"><span aria-hidden="true">☰</span> Índice</button>
+  <div class="tb-title" id="tb-title">Cómo funciona Superfocus</div>
+  <div class="tb-progress" id="tb-progress" role="group" aria-label="Pantallas del capítulo"></div>
+  <button class="tb-btn" type="button" id="tb-gloss">Glosario</button>
+</header>
+<main id="app"></main>
+<nav class="gnav" id="gnav" aria-label="Navegación del recorrido">
+  <button class="btn" type="button" id="g-prev">← Anterior</button>
+  <span class="g-pos" id="g-pos"></span>
+  <button class="btn primary" type="button" id="g-next">Siguiente →</button>
+</nav>
+
+<dialog id="ficha-dlg" aria-labelledby="ficha-title">
+  <button class="dlg-close" type="button" id="ficha-close" aria-label="Cerrar ficha">×</button>
+  <div id="ficha" class="card"></div>
+  <div class="dlg-foot"><button class="btn" type="button" id="ficha-ok">Cerrar</button></div>
+</dialog>
+
+<dialog id="gloss-dlg" class="drawer" aria-labelledby="gloss-title">
+  <div class="drawer-head">
+    <h2 id="gloss-title">Glosario</h2>
+    <button class="dlg-close static" type="button" id="gloss-close" aria-label="Cerrar glosario">×</button>
+  </div>
+  <label class="gl-search"><span>Buscar</span><input type="search" id="gloss-q" placeholder="Por ejemplo: cookie" autocomplete="off"></label>
+  <dl class="gloss" id="gloss"></dl>
+</dialog>
+
+<script>
+const FICHAS = {
+  "src-web": {
+    nombre: "Código del front", zona: "build", tipo: "ficheros fuente",
+    que: "Ficheros <code>.tsx</code>: TypeScript con JSX (etiquetas parecidas a HTML dentro del código), usando React para la interfaz y clases de Tailwind para el estilo. El navegador no entiende ni TypeScript ni JSX, así que estos ficheros nunca le llegan tal cual.",
+    donde: "<code>srcs/apps/web/src/</code>: <code>main.tsx</code> (punto de entrada), <code>App.tsx</code>, <code>pages/</code>.",
+    cuando: "Lo escribís vosotros. No se ejecuta en ningún sitio sin pasar antes por la construcción.",
+    unidad: "F3 (JS/TS) y F10 (React) del plan formativo"
+  },
+  "src-api": {
+    nombre: "Código del back", zona: "build", tipo: "ficheros fuente",
+    que: "Ficheros <code>.ts</code> organizados al estilo de NestJS: módulos, controllers (reciben las peticiones), services (la lógica) y entidades del ORM (las tablas vistas desde el código).",
+    donde: "<code>srcs/apps/api/src/</code>. Hoy no existe: el backend está por construir.",
+    cuando: "Lo escribís vosotros. Antes de ejecutarlo se compila a JavaScript.",
+    unidad: "F5 a F8 del plan formativo"
+  },
+  "node-build": {
+    nombre: "Node.js como herramienta", zona: "build", tipo: "programa",
+    que: "Node.js es un programa que ejecuta JavaScript fuera del navegador. Usa el mismo motor (V8) que Chrome, pero en lugar de <code>document</code> o <code>fetch</code> de página ofrece ficheros, procesos y sockets. Aquí no atiende a nadie: arranca y coordina las herramientas de construcción: <code>npm</code> (instala dependencias), <code>tsc</code> (comprueba tipos y compila TypeScript) y Vite (traduce y empaqueta el front). npm y Vite están escritos en JavaScript; otras piezas que lanzan son programas nativos, más rápidos: vuestro TypeScript 7 está escrito en Go, y Rolldown (el empaquetador de Vite) y el motor de Tailwind, en Rust. El detalle está en el esquema ②.",
+    donde: "En la primera etapa del Dockerfile de nginx (imagen <code>node:24-alpine</code>) y en tu terminal cuando usas <code>npm</code>.",
+    cuando: "Durante <code>make</code>. Hace su trabajo y termina: la imagen final del front no contiene Node.",
+    unidad: "F4 (Node.js) y U7"
+  },
+  "dist-web": {
+    nombre: "dist/ del front (el bundle)", zona: "build", tipo: "ficheros generados",
+    que: "El resultado de construir el front: un <code>index.html</code> casi vacío (un <code>&lt;div id=\"root\"&gt;</code> y dos referencias), un <code>assets/index-&lt;hash&gt;.js</code> con todo vuestro código más React, minificado, y un <code>assets/index-&lt;hash&gt;.css</code> con solo las clases de Tailwind que usáis. Son ficheros de texto, no binarios. El <em>hash</em> cambia cuando cambia el contenido, para que el navegador no use una versión vieja guardada en caché.",
+    donde: "Se genera en <code>/app/dist</code> dentro del build y se copia a <code>/usr/share/nginx/html</code>.",
+    cuando: "Se genera una vez por construcción y se sirve igual a todos los usuarios.",
+    seg: "Todo lo que hay aquí es público: cualquiera lo descarga y lo lee en DevTools. Nunca pongáis claves ni contraseñas en el front. Ojo: las variables de entorno <code>VITE_*</code> se copian dentro del bundle.",
+    unidad: "U1 §7 y esquema ②"
+  },
+  "dist-api": {
+    nombre: "dist/main.js (back compilado)", zona: "build", tipo: "ficheros generados",
+    que: "El JavaScript que sale de compilar el TypeScript del backend con <code>nest build</code>. Se ejecuta con <code>node dist/main.js</code>.",
+    donde: "Dentro del contenedor del backend. Nunca sale del servidor: el usuario no lo ve.",
+    cuando: "Se genera al construir y Node lo ejecuta al arrancar el contenedor.",
+    seg: "Por eso los secretos (contraseña de Postgres, claves de OAuth) llegan al backend como variables de entorno desde <code>.env</code>, y solo al backend.",
+    unidad: "esquema ②"
+  },
+  "nginx": {
+    nombre: "nginx", zona: "server", tipo: "servidor web y reverse proxy",
+    que: "El único programa que escucha hacia fuera (puerto 443, HTTPS con TLS 1.3). Decide según la ruta de la petición: <code>/</code> busca el fichero en <code>dist/</code> y, si no existe, devuelve <code>index.html</code> (<code>try_files</code>), para que React gestione rutas como <code>/perfil</code>. <code>/api/</code> reenvía la petición tal cual al backend (<code>proxy_pass http://api:3000</code>) y devuelve su respuesta. No ejecuta código de la app. Es exactamente lo que hacía webserv.",
+    donde: "Contenedor <code>frontend</code>, configuración en <code>srcs/infra/nginx/conf/server.conf</code>.",
+    cuando: "Siempre encendido. Cada fichero y cada llamada a la API pasa por él.",
+    seg: "Termina el TLS: por detrás, dentro del servidor, el tráfico puede ir sin cifrar (el subject lo permite). Como front y API salen del mismo origen (<code>https://localhost</code>), no hace falta CORS. Hoy falta el bloque <code>location /api/</code>.",
+    unidad: "U1 §7–8, F1"
+  },
+  "backend": {
+    nombre: "Node.js + NestJS (backend)", zona: "server", tipo: "programa",
+    que: "El mismo Node.js de la construcción, con otro trabajo: ahora es un proceso que no termina y escucha en el puerto 3000. NestJS es el framework que organiza el código: recibe la petición, comprueba la sesión, valida los datos, aplica las reglas de la app, consulta la base de datos a través del ORM y responde con JSON. Nunca devuelve HTML ni recompila el front. Atiende a muchos clientes con un bucle de eventos, la misma idea que el <code>poll()</code> de ft_irc.",
+    donde: "Contenedor <code>backend</code> (servicio <code>api</code> en Compose). Hoy arranca vacío y se detiene.",
+    cuando: "Siempre encendido. Solo actúa cuando nginx le reenvía una petición a <code>/api/</code>.",
+    seg: "Valida todo lo que recibe, aunque el front ya lo haya validado: el front se puede saltar. El usuario sale de la sesión, nunca de un campo del body (si no, cualquiera podría actuar en nombre de otro: IDOR).",
+    unidad: "F4–F8, U5, U8"
+  },
+  "postgres": {
+    nombre: "PostgreSQL", zona: "server", tipo: "base de datos",
+    que: "Base de datos relacional: guarda en tablas los usuarios, las sesiones de concentración, las amistades… Solo habla con el backend, con su propio protocolo por el puerto 5432, no con HTTP. El backend no suele escribir el SQL a mano: lo genera el ORM (Prisma o TypeORM, por decidir).",
+    donde: "Contenedor <code>db</code>, imagen <code>postgres:18-alpine</code>.",
+    cuando: "Siempre encendido. Responde a las consultas del backend.",
+    seg: "No publica ningún puerto: desde fuera no se puede llegar a él. Hoy los datos se pierden al recrear el contenedor porque el volumen <code>pgdata</code> no está montado (U7).",
+    unidad: "F2, U6"
+  },
+  "net": {
+    nombre: "Red del navegador", zona: "browser", tipo: "parte del navegador",
+    que: "La parte del navegador que abre conexiones, negocia TLS, envía peticiones HTTP y guarda y reenvía cookies. Hace dos tipos de peticiones: las que lanza él solo (navegar a una URL, cargar un <code>&lt;script&gt;</code> o una hoja de estilos) y las que le pide el JavaScript de la página con <code>fetch()</code>.",
+    donde: "Dentro del navegador. La pestaña Network de DevTools muestra todo lo que hace.",
+    cuando: "En la carga inicial y cada vez que React necesita datos.",
+    seg: "La cookie de sesión será <code>HttpOnly</code>: el navegador la envía en cada petición, pero el JavaScript de la página no puede leerla, así que un script inyectado (XSS) tampoco.",
+    unidad: "U1, U2, U5"
+  },
+  "v8": {
+    nombre: "Motor JavaScript", zona: "browser", tipo: "parte del navegador",
+    que: "Ejecuta el JavaScript del bundle. En Chrome y Edge es V8; Firefox usa SpiderMonkey y Safari JavaScriptCore. V8 es también el motor que hay dentro de Node.js: el mismo lenguaje, en dos sitios con herramientas distintas (aquí hay <code>document</code> y <code>window</code>; en Node, ficheros y sockets).",
+    donde: "En el ordenador de cada usuario.",
+    cuando: "Desde que se descarga el .js hasta que se cierra la pestaña.",
+    unidad: "F3, F9"
+  },
+  "react": {
+    nombre: "React", zona: "browser", tipo: "librería de interfaz",
+    que: "Construye la interfaz a partir del estado: describes cómo es la pantalla con unos datos dados y React se encarga de cambiar el DOM. Cuando llega un JSON nuevo, se actualiza el estado y React redibuja solo lo que ha cambiado. Arranca en <code>main.tsx</code> con <code>createRoot(...).render(&lt;App /&gt;)</code>. Un router (React Router, pendiente) elige la pantalla según la URL sin pedir HTML al servidor. El subject lo cuenta como framework.",
+    donde: "Dentro del bundle, ejecutándose en el navegador.",
+    cuando: "Durante toda la visita.",
+    unidad: "F10, esquemas ③ y ④"
+  },
+  "dom": {
+    nombre: "DOM y pantalla", zona: "browser", tipo: "estructura del navegador",
+    que: "El árbol de objetos que representa la página en memoria; el navegador lo pinta en pantalla. Los clics y las teclas del usuario generan eventos que React escucha para cambiar el estado.",
+    donde: "En el navegador del usuario.",
+    cuando: "Siempre que la pestaña está abierta.",
+    seg: "React escapa el texto que inserta (por ejemplo, un nombre de usuario con <code>&lt;script&gt;</code>), lo que protege de XSS salvo que se use <code>dangerouslySetInnerHTML</code>.",
+    unidad: "F9"
+  }
+};
+
+const ZONA = { build: "Construcción", server: "Servidor", browser: "Navegador" };
+
+const STEPS = [
+  { t: "Escribís el código",
+    p: "Todo empieza en ficheros de texto: el front en <code>.tsx</code> (TypeScript + JSX, con React y Tailwind) y el back en <code>.ts</code> (NestJS). Ningún programa los ejecuta tal cual: el navegador no entiende ni TypeScript ni JSX.",
+    hl: ["src-web", "src-api"], pk: [] },
+  { t: "make: Node.js construye",
+    p: "Node.js ejecuta las herramientas de construcción. Front: <code>npm run build</code> lanza <code>tsc -b</code> (comprueba los tipos; un error para el build) y <code>vite build</code> (traduce a JavaScript normal, junta todo en pocos ficheros y genera el CSS de Tailwind). Back: <code>nest build</code> compila a <code>dist/main.js</code>. Salen ficheros de texto, no binarios. Esto ocurre una vez, no con cada visita.",
+    hl: ["src-web", "src-api", "node-build", "dist-web", "dist-api", "a-srcweb", "a-srcapi", "a-buildweb", "a-buildapi"],
+    pk: [{ pts: [[120,156],[120,270],[200,292],[300,292],[300,156]], label: ".tsx → .js" },
+         { pts: [[120,448],[120,334],[200,314],[330,314],[330,448]], label: ".ts → .js" }] },
+  { t: "Arranca el servidor",
+    p: "nginx recibe una copia de <code>dist/</code> y se queda escuchando en el 443. Node.js arranca otra vez, ahora con su segundo trabajo: ejecutar <code>dist/main.js</code>, el backend, que escucha en el 3000. El Node.js de la construcción ya terminó; la zona Construcción no vuelve a intervenir.",
+    hl: ["dist-web", "dist-api", "nginx", "backend", "postgres", "a-deployweb", "a-deployapi"],
+    pk: [{ pts: [[390,122],[475,122]], label: "dist/" },
+         { pts: [[390,482],[425,482],[425,330],[475,330]], label: "main.js" }] },
+  { t: "El navegador pide la página",
+    p: "Escribes <code>https://localhost</code>. Tras DNS, TCP y TLS (esquema ③), el navegador envía <code>GET /</code>. nginx devuelve <code>index.html</code>, casi vacío: un <code>&lt;div id=\"root\"&gt;</code> y referencias a un .js y un .css. El navegador hace una petición más por cada uno. Son ficheros estáticos, iguales para todos los usuarios.",
+    hl: ["net", "nginx", "a-files"],
+    pk: [{ pts: [[901,116],[789,116],[630,140],[789,116],[901,116]], label: "GET / · index.html" }] },
+  { t: "El navegador ejecuta el bundle",
+    p: "El motor JavaScript del navegador ejecuta el .js descargado. Dentro va React, que construye la interfaz y la convierte en elementos del DOM: la pantalla. Desde aquí la app corre en el ordenador del usuario, y el servidor no sabe nada de lo que pasa en ella hasta que reciba otra petición.",
+    hl: ["net", "v8", "react", "dom", "a-code", "a-boot", "a-dom"],
+    pk: [{ pts: [[1035,170],[1035,230],[1035,294],[1035,340],[1035,404],[1035,450]], label: "index-a3f9.js" }] },
+  { t: "React pide datos a la API",
+    p: "Para mostrar tu perfil, React necesita datos que solo tiene el servidor. Llama a <code>fetch('/api/users/me')</code>; el navegador añade la cookie de sesión y envía la petición al mismo nginx. nginx ve que la ruta empieza por <code>/api/</code> y la reenvía al backend por la red interna.",
+    hl: ["react", "net", "nginx", "backend", "a-fetch", "a-json", "a-proxy"],
+    pk: [{ pts: [[905,372],[884,372],[884,156],[789,156],[630,180],[630,290]], label: "GET /api/users/me" }] },
+  { t: "El backend consulta la base de datos",
+    p: "NestJS comprueba la sesión (¿quién eres?), aplica sus reglas y pide los datos a Postgres. El ORM genera la consulta SQL. Postgres solo habla con el backend, con su propio protocolo, no con HTTP.",
+    hl: ["backend", "postgres", "a-sql"],
+    pk: [{ pts: [[630,372],[630,450],[630,372]], label: "SELECT …" }] },
+  { t: "Vuelve un JSON, no HTML",
+    p: "El backend responde con JSON, por ejemplo <code>{ \"id\": 3, \"username\": \"ana\" }</code>, y la respuesta hace el camino inverso. React guarda esos datos en su estado y redibuja solo lo que cambia. Nadie ha recompilado nada ni generado HTML nuevo. Cada clic posterior repite los pasos 6 a 8 (esquema ④).",
+    hl: ["backend", "nginx", "net", "react", "dom", "a-proxy", "a-json", "a-fetch", "a-dom"],
+    pk: [{ pts: [[630,290],[630,180],[789,156],[884,156],[884,372],[1035,372],[1035,404],[1035,450]], label: "200 · JSON" }] }
+];
+
+const NS = "http://www.w3.org/2000/svg";
+const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const ficha = document.getElementById("ficha");
+const dlg = document.getElementById("ficha-dlg");
+let lastOpener = null;
+
+function renderFicha(id) {
+  const f = FICHAS[id];
+  if (!f) return;
+  document.querySelectorAll(".nd").forEach(n => n.classList.toggle("sel", n.dataset.id === id));
+  ficha.innerHTML =
+    `<div class="eyebrow">Ficha · ${f.tipo}</div>
+     <h2 id="ficha-title">${f.nombre}</h2>
+     <div><span class="pill ${f.zona}">${ZONA[f.zona]}</span></div>
+     <p>${f.que}</p>
+     <dl class="facts"><dt>Dónde</dt><dd>${f.donde}</dd><dt>Cuándo</dt><dd>${f.cuando}</dd>${f.unidad ? `<dt>Ver</dt><dd>${f.unidad}</dd>` : ""}</dl>
+     ${f.seg ? `<div class="sec"><b>Seguridad</b>${f.seg}</div>` : ""}`;
+  lastOpener = document.activeElement;
+  if (typeof dlg.showModal === "function") { if (!dlg.open) dlg.showModal(); }
+  else dlg.setAttribute("open", "");
+  document.getElementById("ficha-ok").focus();
+}
+function closeFicha() {
+  if (typeof dlg.close === "function") dlg.close(); else dlg.removeAttribute("open");
+}
+dlg.addEventListener("close", () => {
+  document.querySelectorAll(".nd").forEach(n => n.classList.remove("sel"));
+  if (lastOpener && typeof lastOpener.focus === "function") lastOpener.focus();
+});
+document.getElementById("ficha-close").addEventListener("click", closeFicha);
+document.getElementById("ficha-ok").addEventListener("click", closeFicha);
+dlg.addEventListener("click", e => { if (e.target === dlg) closeFicha(); });
+
+document.querySelectorAll(".nd").forEach(n => {
+  n.addEventListener("click", () => { n.focus(); renderFicha(n.dataset.id); });
+  n.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); renderFicha(n.dataset.id); } });
+});
+
+function polyLen(pts) {
+  const segs = [];
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const d = Math.hypot(pts[i][0] - pts[i-1][0], pts[i][1] - pts[i-1][1]);
+    segs.push(d); total += d;
+  }
+  return { segs, total };
+}
+function pointAt(pts, info, dist) {
+  let acc = 0;
+  for (let i = 0; i < info.segs.length; i++) {
+    if (acc + info.segs[i] >= dist) {
+      const k = info.segs[i] === 0 ? 0 : (dist - acc) / info.segs[i];
+      return [pts[i][0] + (pts[i+1][0] - pts[i][0]) * k, pts[i][1] + (pts[i+1][1] - pts[i][1]) * k];
+    }
+    acc += info.segs[i];
+  }
+  return pts[pts.length - 1];
+}
+
+/* Recorrido paso a paso reutilizable: un diagrama, su texto de paso, sus paquetes y su zoom */
+/* Desactivado por defecto. Solo se activa si el lector lo ha encendido antes con el botón del diagrama. */
+let AUTOZOOM = false;
+try { const z = localStorage.getItem("sf-autozoom"); if (z !== null) AUTOZOOM = z === "1"; } catch (e) {}
+
+function makeWalk(cfg) {
+  const { svg, layer, story, steps, intro, flipX = 1000, onStep, zoomable = true } = cfg;
+  const svgs = cfg.focusSvgs || [svg];
+  let step = -1, raf = null, zraf = null;
+  const vb0 = svg.getAttribute("viewBox").split(/\s+/).map(Number);
+  let vbNow = vb0.slice();
+  function stop() { if (raf) cancelAnimationFrame(raf); raf = null; layer.innerHTML = ""; }
+  function play(list) {
+    stop();
+    if (!list.length) return;
+    const items = list.map(pk => {
+      const g = document.createElementNS(NS, "g"); g.setAttribute("class", "pkt");
+      const c = document.createElementNS(NS, "circle"); c.setAttribute("r", "7");
+      const r = document.createElementNS(NS, "rect"); r.setAttribute("rx", "4");
+      const t = document.createElementNS(NS, "text"); t.textContent = pk.label;
+      g.append(c, r, t); layer.append(g);
+      return { c, r, t, pts: pk.pts, info: polyLen(pk.pts) };
+    });
+    const place = (it, dist) => {
+      const [x, y] = pointAt(it.pts, it.info, dist);
+      it.c.setAttribute("cx", x); it.c.setAttribute("cy", y);
+      const right = x < flipX;
+      it.t.setAttribute("x", right ? x + 12 : x - 12);
+      it.t.setAttribute("text-anchor", right ? "start" : "end");
+      it.t.setAttribute("y", y - 12);
+      let bb; try { bb = it.t.getBBox(); } catch (e) { return; }
+      it.r.setAttribute("x", bb.x - 5); it.r.setAttribute("y", bb.y - 3);
+      it.r.setAttribute("width", bb.width + 10); it.r.setAttribute("height", bb.height + 6);
+    };
+    if (reduced) { items.forEach(it => place(it, it.info.total)); return; }
+    const speed = 0.22, pause = 900;
+    const longest = Math.max(...items.map(it => it.info.total));
+    const cycle = longest / speed + pause;
+    const t0 = performance.now();
+    const tick = now => {
+      const el = (now - t0) % cycle;
+      items.forEach(it => place(it, Math.min(el * speed * (it.info.total / longest), it.info.total)));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+  }
+  function setVB(v) { vbNow = v; svg.setAttribute("viewBox", v.map(n => Math.round(n * 10) / 10).join(" ")); }
+  function animateVB(target) {
+    if (zraf) cancelAnimationFrame(zraf);
+    const from = vbNow.slice();
+    if (reduced) { setVB(target); return; }
+    const t0 = performance.now(), dur = 420;
+    const tick = now => {
+      const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      setVB(from.map((f, i) => f + (target[i] - f) * e));
+      if (k < 1) zraf = requestAnimationFrame(tick);
+    };
+    zraf = requestAnimationFrame(tick);
+  }
+  function zoomTarget(s) {
+    const [X0, Y0, W0, H0] = vb0;
+    if (!zoomable || !AUTOZOOM || !s) return vb0.slice();
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    const add = (a, b, c, d) => { x1 = Math.min(x1, a); y1 = Math.min(y1, b); x2 = Math.max(x2, c); y2 = Math.max(y2, d); };
+    svg.querySelectorAll(".nd.on, .ar.on").forEach(e => { try { const b = e.getBBox(); if (b.width || b.height) add(b.x, b.y, b.x + b.width, b.y + b.height); } catch (er) {} });
+    (s.pk || []).forEach(pk => pk.pts.forEach(([x, y]) => add(x - 10, y - 30, x + 10, y + 10)));
+    if (!isFinite(x1)) return vb0.slice();
+    const pad = 40;
+    x1 -= pad; y1 -= pad; x2 += pad; y2 += pad;
+    let w = Math.max(x2 - x1, W0 * 0.45), h = Math.max(y2 - y1, H0 * 0.45);
+    const box = svg.parentElement.getBoundingClientRect();
+    const asp = box.width > 0 && box.height > 0 ? box.width / box.height : W0 / H0;
+    if (w / h < asp) w = h * asp; else h = w / asp;
+    if (w >= W0 && h >= H0) return vb0.slice();
+    let cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+    let x = cx - w / 2, y = cy - h / 2;
+    if (w <= W0) x = Math.min(Math.max(x, X0), X0 + W0 - w); else x = X0 + (W0 - w) / 2;
+    if (h <= H0) y = Math.min(Math.max(y, Y0), Y0 + H0 - h); else y = Y0 + (H0 - h) / 2;
+    return [x, y, w, h];
+  }
+  function render() {
+    const els = svgs.flatMap(v => [...v.querySelectorAll(".nd, .ar")]);
+    if (step < 0) {
+      svgs.forEach(v => v.classList.remove("focus"));
+      els.forEach(e => e.classList.remove("on"));
+      stop();
+      story.innerHTML = intro;
+      if (zoomable) animateVB(vb0.slice());
+      if (onStep) onStep(null);
+      return;
+    }
+    const s = steps[step];
+    svgs.forEach(v => v.classList.add("focus"));
+    const on = new Set(s.hl);
+    els.forEach(e => e.classList.toggle("on", on.has(e.dataset.id)));
+    play(s.pk || []);
+    const chips = s.hl.filter(id => FICHAS[id]).map(id => `<button type="button" class="chip" data-f="${id}">${FICHAS[id].nombre}</button>`).join("");
+    story.innerHTML = `<div class="eyebrow">Paso ${step + 1} de ${steps.length}</div><h2>${s.t}</h2>${s.p}
+      ${chips ? `<div class="chips"><span>Fichas de este paso:</span>${chips}</div>` : ""}`;
+    if (zoomable) animateVB(zoomTarget(s));
+    if (onStep) onStep(s);
+  }
+  story.addEventListener("click", e => { const c = e.target.closest(".chip"); if (c) renderFicha(c.dataset.f); });
+  return {
+    go(i) { step = i; render(); },
+    refreshZoom() { if (zoomable) animateVB(step < 0 ? vb0.slice() : zoomTarget(steps[step])); },
+    stop() { stop(); if (zraf) cancelAnimationFrame(zraf); },
+    count: steps.length, zoomable
+  };
+}
+
+const $ = id => document.getElementById(id);
+const WALKS = {
+  mapa: makeWalk({
+    svg: $("map"), layer: $("pkts"), story: $("story"), prev: $("prev"), next: $("next"), all: $("all"), counter: $("counter"),
+    steps: STEPS.map(s => ({ ...s, p: `<p>${s.p}</p>` })),
+    intro: `<div class="eyebrow">Vista completa</div>
+       <h2>Tres zonas que son también tres momentos</h2>
+       <p>La <strong>construcción</strong> prepara los ficheros una sola vez. El <strong>servidor</strong> se queda esperando peticiones. El <strong>navegador</strong> descarga la app, la ejecuta y vuelve al servidor solo para pedir datos.</p>
+       <p>No son necesariamente tres máquinas: en nuestro proyecto, construcción y servidor ocurren en tu ordenador, dentro de Docker. En producción, el servidor sería otra máquina en internet.</p>
+       <p>Las cajas con borde verde y etiqueta <strong>1/2</strong> y <strong>2/2</strong> son el mismo programa, Node.js, haciendo dos trabajos distintos.</p>
+       <p><strong>Pulsa cualquier caja del diagrama</strong> para abrir su ficha, o <strong>Siguiente</strong> para seguir el viaje completo en 8 pasos.</p>
+       <p class="aside-note">¿Hace tiempo que no tocas sockets ni HTTP? <button type="button" class="linkbtn" data-goto="0">Repasa primero el capítulo ⓪</button> y vuelve aquí al terminar.</p>`
+  })
+};
+
+const GLOSS = [
+  ["TypeScript", "JavaScript con tipos. Los tipos se comprueban al compilar y se borran: en ejecución no existen ni protegen de datos que llegan por la red."],
+  ["JSX / TSX", "Sintaxis que permite escribir etiquetas parecidas a HTML dentro del código. .tsx es JSX en TypeScript. Hay que traducirlo antes de que llegue al navegador."],
+  ["tsc", "El compilador de TypeScript. En el front solo comprueba tipos; en el back también genera el JavaScript."],
+  ["Vite", "Herramienta de construcción del front: traduce TS y JSX, empaqueta todo en pocos ficheros y los minifica. En desarrollo, sirve el código con recarga al guardar."],
+  ["Bundle", "El paquete de ficheros que produce Vite y que descarga el navegador. Texto, no binario."],
+  ["Tailwind CSS", "Estilos mediante clases pequeñas (p-4, text-lg). Al construir, genera un CSS con solo las clases usadas."],
+  ["npm", "Gestor de paquetes de Node. package.json declara las dependencias y package-lock.json fija sus versiones exactas."],
+  ["Node.js", "Programa que ejecuta JavaScript fuera del navegador, con acceso a ficheros, procesos y red."],
+  ["NestJS", "Framework de backend para Node.js con módulos, controllers, services, validación y guards. Está construido sobre Express."],
+  ["Express", "Framework de backend minimalista para Node.js. Lo usáis para aprender antes de NestJS."],
+  ["nginx", "Servidor web: sirve ficheros y hace de reverse proxy hacia otros programas."],
+  ["Reverse proxy", "Servidor que recibe peticiones de fuera y las reenvía a un programa interno, devolviendo su respuesta como si fuera suya."],
+  ["HTTP / HTTPS", "Protocolo de texto de petición y respuesta. HTTPS es HTTP dentro de un canal TLS cifrado."],
+  ["Endpoint", "Combinación de método y ruta de la API que hace una cosa concreta, por ejemplo GET /api/users/me."],
+  ["JSON", "Formato de texto para datos estructurados. Es lo que intercambian front y back."],
+  ["API", "Conjunto de endpoints que el backend ofrece para que otros programas (nuestro front, un script) le pidan cosas."],
+  ["Cookie de sesión", "Dato que el servidor pide al navegador guardar y que este reenvía en cada petición. Así el backend sabe quién eres."],
+  ["Mismo origen / CORS", "Por seguridad, el navegador limita las peticiones de una página a otro origen (esquema, host y puerto). CORS son las reglas para permitirlas. Con nginx sirviendo front y API no hacen falta."],
+  ["ORM", "Librería que traduce entre objetos del código y tablas de la base de datos, y genera el SQL. Candidatos: Prisma o TypeORM."],
+  ["SQL", "Lenguaje para consultar y modificar una base de datos relacional."],
+  ["DOM", "Árbol de objetos que representa la página en el navegador."],
+  ["V8", "Motor de JavaScript de Chrome, Edge y Node.js."],
+  ["SPA", "Aplicación que carga un HTML una vez y después cambia de pantalla con JavaScript, pidiendo solo datos."],
+  ["SSR", "Generar el HTML en el servidor en cada petición. Superfocus no lo usa."],
+  ["Socket", "El extremo de una conexión que el sistema operativo te da como un fd. Lo creabas con socket() y leías y escribías con recv() y send()."],
+  ["TCP", "Protocolo que ofrece un canal fiable y ordenado de bytes entre dos programas. No sabe dónde empieza o acaba cada mensaje."],
+  ["\\r\\n (CRLF)", "Retorno de carro + salto de línea. Termina cada línea en IRC y en las cabeceras de HTTP/1.1."],
+  ["Framing (delimitar)", "Cómo sabe el receptor dónde acaba un mensaje dentro del flujo de bytes: por un separador, por una longitud o por ambos."],
+  ["Cabecera HTTP", "Línea Nombre: valor que acompaña a una petición o respuesta con información sobre ella."],
+  ["Código de estado", "Número de tres cifras de la respuesta que resume el resultado: 2xx, 3xx, 4xx o 5xx."],
+  ["Sin estado (stateless)", "HTTP no recuerda nada entre peticiones: cada una debe traer todo lo necesario, incluida tu identificación."],
+  ["Keep-alive", "Reutilizar una conexión TCP para varias peticiones HTTP. Ahorra tiempo, pero no crea estado."],
+  ["Polling", "Preguntar al servidor cada cierto tiempo si hay novedades. La alternativa cuando no hay WebSocket."],
+  ["WebSocket", "Protocolo que empieza como una petición HTTP y la convierte en una conexión permanente en la que ambos lados envían cuando quieren."]
+];
+document.getElementById("gloss").innerHTML = GLOSS.map(([t, d]) => `<div><dt>${t}</dt><dd>${d}</dd></div>`).join("");
+
+
+/* ---------- ② Construcción: fichas y pasos ---------- */
+Object.assign(FICHAS, {
+  "c-websrc": {
+    nombre: "Fuentes del front", zona: "build", tipo: "ficheros fuente",
+    que: "Todo lo que entra en la construcción del front. <code>index.html</code> es el punto de entrada de Vite: contiene <code>&lt;script type=\"module\" src=\"/src/main.tsx\"&gt;</code>, y desde ahí cada <code>import</code> lleva al siguiente fichero. <code>main.tsx</code> monta React en <code>#root</code>; <code>index.css</code> solo tiene <code>@import \"tailwindcss\"</code>; las imágenes de <code>src/assets/</code> se importan desde el código y <code>public/</code> se copia tal cual. Además: <code>package.json</code> (dependencias y scripts), <code>package-lock.json</code> (versiones exactas), <code>tsconfig*.json</code> (reglas de TypeScript) y <code>vite.config.ts</code> (plugins de React y Tailwind).",
+    donde: "<code>srcs/apps/web/</code>.",
+    cuando: "Entran en la etapa de construcción con <code>COPY</code> en el Dockerfile de nginx.",
+    unidad: "U7 §6"
+  },
+  "c-npm-web": {
+    nombre: "npm ci (front)", zona: "build", tipo: "instalación de dependencias",
+    que: "Lee <code>package-lock.json</code> y descarga exactamente esas versiones a <code>node_modules/</code>. Si <code>package.json</code> y el lockfile no coinciden, falla; <code>npm install</code>, en cambio, reescribiría el lockfile. En el front real: 33 paquetes de primer nivel y 111 MB. Hay dos grupos: <em>dependencies</em> (<code>react</code>, <code>react-dom</code>), que acabarán dentro del bundle, y <em>devDependencies</em> (<code>vite</code>, <code>typescript</code>, <code>tailwindcss</code>, <code>oxlint</code>), herramientas que solo se usan para construir. Varias traen binarios nativos para la plataforma, como <code>@rolldown/binding-linux-x64-gnu</code>.",
+    donde: "Etapa de construcción del Dockerfile de nginx, o tu terminal en modo desarrollo.",
+    cuando: "En cada <code>make</code>, salvo que Docker reutilice la caché porque <code>package*.json</code> no ha cambiado.",
+    seg: "Instalar paquetes ejecuta código de terceros (scripts de instalación) con los permisos del proceso. Usad <code>npm ci</code>, revisad en los PR los cambios del lockfile y añadid dependencias solo cuando hagan falta. Hoy el Dockerfile hace antes un <code>npm install -g</code> que instala el propio proyecto como paquete global (U7, ejercicio 7).",
+    unidad: "U7"
+  },
+  "c-registry": {
+    nombre: "Registro de npm", zona: "build", tipo: "servidor externo",
+    que: "Servidor público (<code>registry.npmjs.org</code>) del que npm descarga los paquetes. El lockfile guarda para cada paquete un campo <code>integrity</code> con su hash, y npm comprueba que lo descargado coincide.",
+    donde: "En internet. Es la única conexión hacia fuera durante la construcción.",
+    cuando: "Durante <code>npm ci</code>.",
+    seg: "Cualquiera puede publicar paquetes, incluso con nombres casi idénticos a otros populares. El hash del lockfile protege de que un paquete ya fijado cambie, no de haber elegido uno malicioso: comprobad el nombre exacto y quién lo mantiene antes de añadirlo.",
+    unidad: "—"
+  },
+  "c-tsc": {
+    nombre: "tsc -b", zona: "build", tipo: "compilador de TypeScript",
+    que: "Comprueba que los tipos encajan en todo <code>src/</code>. <code>-b</code> (build) sigue las referencias de <code>tsconfig.json</code> a <code>tsconfig.app.json</code> y <code>tsconfig.node.json</code>. Como <code>tsconfig.app.json</code> tiene <code>\"noEmit\": true</code>, en el front no escribe ningún fichero: solo aprueba o suspende. En vuestro <code>package.json</code> la versión es TypeScript 7, la reescritura nativa en Go del compilador, mucho más rápida que las versiones 5.x escritas en JavaScript.",
+    donde: "Etapa de construcción, primera mitad de <code>npm run build</code>.",
+    cuando: "Antes de Vite. Si encuentra un error termina con un código distinto de 0 y el <code>&amp;&amp;</code> impide que se ejecute <code>vite build</code>.",
+    unidad: "F3, U7 ejercicio 4"
+  },
+  "c-vite": {
+    nombre: "vite build", zona: "build", tipo: "herramienta de construcción",
+    que: "Hace cuatro cosas. <strong>1</strong>: partiendo de <code>index.html</code>, sigue cada <code>import</code> y monta el grafo de módulos (20 en vuestra app). <strong>2</strong>: transforma cada fichero, quitando los tipos y convirtiendo el JSX en llamadas a funciones. <strong>3</strong>: el plugin de Tailwind busca qué clases aparecen en el código y genera solo su CSS. <strong>4</strong>: Rolldown, el empaquetador escrito en Rust que usa Vite 8, junta todos los módulos en un fichero, descarta el código que nadie importa (<em>tree-shaking</em>) y lo minifica. Al final reescribe <code>index.html</code> para que apunte a los ficheros generados.",
+    donde: "Etapa de construcción, segunda mitad de <code>npm run build</code>.",
+    cuando: "Una vez por construcción: en vuestra app tarda unos 0,2 segundos.",
+    unidad: "F10, U7 §6"
+  },
+  "c-webdist": {
+    nombre: "dist/ del front", zona: "build", tipo: "ficheros generados",
+    que: "Resultado real de construir el repo actual: <code>index.html</code> (0,45 kB), <code>assets/index-DprjRpmE.js</code> (221 kB; 69 kB comprimido con gzip), <code>assets/index-fyYMFLWa.css</code> (8 kB), tres logos PNG (345 kB entre los tres) y <code>favicon.svg</code> e <code>icons.svg</code> copiados de <code>public/</code>. El fragmento del nombre (<code>DprjRpmE</code>) es un hash del contenido: cambia cuando cambia el fichero. El código es texto; las imágenes siguen siendo imágenes.",
+    donde: "<code>/app/dist</code> en la etapa de construcción.",
+    cuando: "Se genera en cada construcción y se copia a la imagen de nginx.",
+    seg: "Todo esto es público. Si el código usa <code>import.meta.env.VITE_ALGO</code>, Vite escribe el valor dentro del .js: nunca pongáis secretos en una variable <code>VITE_</code>.",
+    unidad: "U1 §7"
+  },
+  "c-nginximg": {
+    nombre: "Imagen de nginx", zona: "server", tipo: "imagen final",
+    que: "La segunda etapa del Dockerfile parte de una imagen limpia (<code>nginx:alpine</code>) y copia solo la carpeta generada: <code>COPY --from=builder /app/dist /usr/share/nginx/html</code>. Además genera el certificado autofirmado y copia <code>server.conf</code>. Node.js, <code>node_modules/</code> y el código fuente se quedan en la etapa de construcción, que se descarta.",
+    donde: "Contenedor <code>frontend</code>.",
+    cuando: "Se construye en <code>make</code> y se ejecuta mientras el proyecto esté arrancado.",
+    seg: "<code>srcs/.dockerignore</code> excluye hoy <code>node_modules/</code> y <code>dist/</code>, pero esos patrones solo coinciden en la raíz del contexto (<code>srcs/</code>), no en <code>apps/web/</code>. Debería usar <code>**/node_modules</code> y <code>**/dist</code>, y excluir también <code>.env</code>, para que ningún <code>COPY</code> pueda meterlo en una imagen.",
+    unidad: "U7 §2"
+  },
+  "c-apisrc": {
+    nombre: "Fuentes del back", zona: "build", tipo: "ficheros fuente",
+    que: "El código del backend al estilo NestJS. <code>main.ts</code> crea la aplicación y la pone a escuchar en el puerto 3000. El resto se organiza por funcionalidades (usuarios, sesiones de concentración, ranking…), cada una con su <code>*.module.ts</code>, sus <code>*.controller.ts</code> (reciben las peticiones), sus <code>*.service.ts</code> (la lógica) y sus DTO (la forma y las reglas de validación de los datos que entran). Además: el esquema o las entidades del ORM, <code>package*.json</code>, <code>tsconfig*.json</code> y <code>nest-cli.json</code>.",
+    donde: "<code>srcs/apps/api/</code>. Hoy solo existe el Dockerfile.",
+    cuando: "Entran en su propia etapa de construcción.",
+    unidad: "F7"
+  },
+  "c-npm-api": {
+    nombre: "npm ci (back)", zona: "build", tipo: "instalación de dependencias",
+    que: "Igual que en el front. Las <em>dependencies</em> serán paquetes como <code>@nestjs/core</code>, <code>@nestjs/common</code>, <code>@nestjs/platform-express</code>, el ORM, el driver de Postgres o la librería de hash de contraseñas. Las <em>devDependencies</em>, el CLI de Nest, TypeScript y los tipos. Diferencia clave: en el back las <em>dependencies</em> también hacen falta al ejecutar, no solo al construir.",
+    donde: "Etapa de construcción del Dockerfile del back.",
+    cuando: "En cada construcción del back, con la misma caché de Docker que en el front.",
+    seg: "Las mismas precauciones que en el front, con más motivo: estos paquetes se ejecutarán en el servidor, con acceso a la base de datos y a los secretos.",
+    unidad: "F4"
+  },
+  "c-nest": {
+    nombre: "nest build", zona: "build", tipo: "compilación del back",
+    que: "El CLI de Nest llama al compilador de TypeScript (por defecto tsc; puede configurarse SWC). Aquí sí se generan ficheros: un <code>.js</code> por cada <code>.ts</code>, con el mismo árbol de carpetas. No empaqueta ni minifica: este código nunca viaja por la red. Conserva los metadatos de los decoradores (<code>@Controller</code>, <code>@Get</code>, <code>@Injectable</code>) que Nest necesita en ejecución para la inyección de dependencias. Si el ORM es Prisma, en esta fase también se genera su cliente con <code>prisma generate</code>.",
+    donde: "Etapa de construcción del back.",
+    cuando: "Después de <code>npm ci</code>. Un error de tipos hace fallar la construcción, igual que en el front.",
+    unidad: "F7, F8"
+  },
+  "c-apidist": {
+    nombre: "dist/ del back", zona: "build", tipo: "ficheros generados",
+    que: "<code>dist/main.js</code>, <code>dist/app.module.js</code>, <code>dist/focus-sessions/focus-sessions.controller.js</code>… Cada fichero sigue haciendo referencia a los paquetes que usa (<code>@nestjs/core</code>, el ORM, el driver de Postgres), que se buscarán en <code>node_modules/</code> al ejecutar. Por eso, a diferencia del front, con <code>dist/</code> solo no basta.",
+    donde: "Etapa de construcción del back.",
+    cuando: "Se copia a la imagen final del back.",
+    unidad: "—"
+  },
+  "c-apiimg": {
+    nombre: "Imagen del back", zona: "server", tipo: "imagen final",
+    que: "Parte otra vez de <code>node:24-alpine</code>, porque esta vez Node es quien ejecuta el programa: es el Node.js 2/2 del mapa general. Copia <code>dist/</code>, instala solo las dependencias de ejecución con <code>npm ci --omit=dev</code> (Nest, el ORM, el driver… pero no TypeScript ni el CLI) y arranca con <code>CMD [\"node\", \"dist/main.js\"]</code>. Hoy el Dockerfile del back tiene todo esto comentado y no tiene <code>CMD</code>; por eso el contenedor termina con <code>Exited (0)</code>.",
+    donde: "Contenedor <code>backend</code> (servicio <code>api</code>).",
+    cuando: "Siempre encendido mientras el proyecto esté arrancado.",
+    seg: "Ejecutadlo con el usuario sin privilegios que trae la imagen oficial (<code>USER node</code>): si alguien consiguiera ejecutar código a través del backend, no sería root dentro del contenedor. Sin herramientas de desarrollo ni código fuente en la imagen hay menos que aprovechar.",
+    unidad: "U7 §2"
+  },
+  "c-env": {
+    nombre: ".env y variables de entorno", zona: "server", tipo: "configuración",
+    que: "Compose lee <code>srcs/.env</code> (<code>env_file</code>) y pasa sus valores al contenedor como variables de entorno al arrancarlo. El backend las lee con <code>process.env</code> o con el <code>ConfigModule</code> de Nest: la URL de la base de datos, el secreto de las sesiones, las claves de OAuth… No están en la imagen: la misma imagen sirve con otra configuración. En el front es al revés: <code>import.meta.env.VITE_ALGO</code> se sustituye por su valor al construir y queda escrito en el bundle.",
+    donde: "<code>srcs/.env</code> en tu máquina; dentro del contenedor, en su entorno.",
+    cuando: "Al arrancar el contenedor, no al construir la imagen.",
+    seg: "<code>.env</code> fuera de Git (ya lo está) y fuera de las imágenes (<code>.dockerignore</code>). Ningún secreto en variables <code>VITE_</code>. Quien añada una variable la añade también a <code>.env.example</code>, sin el valor real.",
+    unidad: "U7 §4"
+  }
+});
+
+const BSTEPS = [
+  { t: "Partimos de texto",
+    p: `<p>Antes de construir solo hay ficheros de texto en el repo. En el front, el punto de entrada no es un <code>.tsx</code>, sino <code>index.html</code>: Vite lo lee primero y encuentra en él <code>&lt;script type="module" src="/src/main.tsx"&gt;</code>. Desde ahí, cada <code>import</code> lleva al siguiente fichero.</p>
+        <p>El back seguirá la estructura de NestJS: <code>main.ts</code> arranca la aplicación y el resto se organiza en módulos, controllers y services. Front y back tienen cada uno su <code>package.json</code> y su <code>package-lock.json</code>, y se construyen por separado, cada uno con su Dockerfile.</p>`,
+    hl: ["c-websrc", "c-apisrc"], pk: [] },
+  { t: "npm ci: descargar las dependencias",
+    p: `<p>La etapa de construcción copia primero <code>package.json</code> y <code>package-lock.json</code> y ejecuta <code>npm ci</code>. npm descarga del registro exactamente las versiones que fija el lockfile y las deja en <code>node_modules/</code>.</p>
+        <p>Con el front real: 33 paquetes de primer nivel y 111 MB. Casi todo son herramientas (<code>vite</code>, <code>typescript</code>, <code>tailwindcss</code>) que solo sirven para construir; lo único que acabará en el navegador es <code>react</code> y <code>react-dom</code>.</p>
+        <p>Docker copia esos dos ficheros antes que el resto del código para aprovechar su caché: si las dependencias no han cambiado, en el siguiente <code>make</code> este paso no se repite.</p>
+        <div class="sec"><b>Seguridad</b>Instalar paquetes ejecuta código de terceros. Usad <code>npm ci</code>, revisad los cambios del lockfile en cada PR y añadid dependencias solo cuando hagan falta.</div>`,
+    hl: ["c-npm-web", "c-npm-api", "c-registry", "b-a-regf", "b-a-regb"],
+    pk: [{ pts: [[290,309],[290,185]], label: "react, vite…" }, { pts: [[290,309],[290,440]], label: "@nestjs/…" }] },
+  { t: "tsc -b: el examen de tipos",
+    p: `<p>El script de construcción del front es <code>"build": "tsc -b &amp;&amp; vite build"</code>. Primero, <code>tsc -b</code> comprueba que los tipos encajan en todo <code>src/</code>. Como <code>tsconfig.app.json</code> tiene <code>"noEmit": true</code>, no escribe ningún fichero: solo aprueba o suspende.</p>
+        <p>Si hay un error, tsc termina con un código distinto de 0 y el <code>&amp;&amp;</code> impide que se ejecute Vite. El build de Docker falla y, como vimos en U7, sigue funcionando la versión anterior.</p>
+        <p>Después de este paso los tipos ya no sirven para nada: Vite los borrará sin mirarlos. TypeScript te protege mientras escribes y construyes, no en ejecución.</p>`,
+    hl: ["c-websrc", "c-npm-web", "c-tsc", "b-a-fsrc", "b-a-fnpm"],
+    pk: [{ pts: [[100,185],[290,185],[460,185]], label: ".tsx con tipos" }] },
+  { t: "vite build: de 20 módulos a un paquete",
+    p: `<p>Vite parte de <code>index.html</code>, sigue cada <code>import</code> y monta el grafo de módulos de la app: en vuestro repo, 20 módulos entre código, CSS e imágenes. Después:</p>
+        <ol>
+          <li>Quita los tipos y convierte el JSX en llamadas a funciones. Así queda una línea de <code>LoginScreen.tsx</code> en el .js final:
+<pre class="wire">&lt;h1 className="text-2xl text-center mb-6 font-extrabold"&gt;LOGIN&lt;/h1&gt;
+
+(0,h.jsx)(\`h1\`,{className:\`text-2xl text-center mb-6 font-extrabold\`,children:\`LOGIN\`})</pre>
+          <code>h</code> es el nombre corto que el minificador ha dado al módulo <code>react/jsx-runtime</code>. Cada etiqueta JSX es una llamada a función que describe un elemento.</li>
+          <li>El plugin de Tailwind busca qué clases aparecen en el código y genera solo su CSS: 8 kB.</li>
+          <li>Rolldown, el empaquetador que usa Vite 8, junta todos los módulos en un solo .js, descarta el código que nadie importa (<em>tree-shaking</em>) y lo minifica: nombres cortos, sin espacios ni comentarios.</li>
+          <li>Por último, reescribe <code>index.html</code> para que apunte a los ficheros generados.</li>
+        </ol>`,
+    hl: ["c-tsc", "c-vite", "c-webdist", "b-a-ftsc", "b-a-fvite"],
+    pk: [{ pts: [[460,185],[660,185],[865,185]], label: "20 módulos → 1 .js" }] },
+  { t: "dist/: lo que de verdad se publica",
+    p: `<p>Este es el resultado real de construir el front del repo hoy:</p>
+        <div class="filewrap"><table class="files">
+          <thead><tr><th>Fichero</th><th>Tamaño</th><th>Qué es</th></tr></thead>
+          <tbody>
+            <tr><td><code>index.html</code></td><td class="num">0,45 kB</td><td>El HTML casi vacío, ya apuntando al .js y al .css</td></tr>
+            <tr><td><code>assets/index-DprjRpmE.js</code></td><td class="num">221 kB</td><td>Todo el código, el vuestro y el de React (la mayor parte). 69 kB si el servidor lo comprime con gzip</td></tr>
+            <tr><td><code>assets/index-fyYMFLWa.css</code></td><td class="num">8 kB</td><td>Las clases de Tailwind que usáis</td></tr>
+            <tr><td><code>assets/*-logo-&lt;hash&gt;.png</code></td><td class="num">345 kB</td><td>Los tres logos importados desde el código</td></tr>
+            <tr><td><code>favicon.svg</code>, <code>icons.svg</code></td><td class="num">15 kB</td><td>Copiados de <code>public/</code> sin cambios ni hash</td></tr>
+          </tbody>
+        </table></div>
+        <p>El fragmento raro del nombre (<code>DprjRpmE</code>) es un hash del contenido. Si cambias una línea, cambia el nombre. Así el navegador puede guardar estos ficheros en caché indefinidamente y, aun así, descargar la versión nueva cuando la haya. <code>index.html</code> no lleva hash: es la puerta de entrada que dice qué nombres tocan ahora.</p>
+        <p>El código es texto y las imágenes siguen siendo imágenes: no hay ningún ejecutable. De paso, los logos pesan más que todo el código; en SVG ocuparían una fracción.</p>`,
+    hl: ["c-webdist"], pk: [] },
+  { t: "La imagen de nginx: solo se queda dist/",
+    p: `<p>El Dockerfile de nginx tiene dos etapas. La segunda empieza desde una imagen limpia de nginx y copia solo la carpeta generada: <code>COPY --from=builder /app/dist /usr/share/nginx/html</code>. Node.js, <code>node_modules/</code> y el código fuente se quedan en la etapa de construcción y se descartan.</p>
+        <p>Por eso en el mapa general decíamos que el Node.js herramienta «construye y termina»: en la imagen que se ejecuta no existe. Lo que nginx sirve pesa menos de 1 MB.</p>
+        <div class="sec"><b>Seguridad</b><code>srcs/.dockerignore</code> excluye <code>node_modules/</code> y <code>dist/</code>, pero esos patrones solo valen para la raíz del contexto (<code>srcs/</code>), no para <code>apps/web/</code>. Debería usar <code>**/node_modules</code> y <code>**/dist</code>, y excluir <code>.env</code>.</div>`,
+    hl: ["c-webdist", "c-nginximg", "b-a-fimg"],
+    pk: [{ pts: [[865,185],[1077,185]], label: "COPY dist/" }] },
+  { t: "nest build: el back sí genera ficheros",
+    p: `<p>El back empieza igual, con <code>npm ci</code> en su propia etapa de construcción. Después, <code>nest build</code> llama al compilador de TypeScript, que aquí sí escribe ficheros: un <code>.js</code> por cada <code>.ts</code>, con el mismo árbol de carpetas.</p>
+        <p>A diferencia de Vite, no empaqueta: cada fichero de <code>dist/</code> sigue haciendo referencia a los paquetes que usa (<code>@nestjs/core</code>, el ORM, el driver de Postgres), que se buscarán en <code>node_modules/</code> al ejecutar. Tampoco minifica: este código nunca viaja por la red.</p>
+        <p>Si el ORM elegido es Prisma, en esta fase se genera además su cliente con <code>prisma generate</code>.</p>`,
+    hl: ["c-apisrc", "c-npm-api", "c-nest", "c-apidist", "b-a-bsrc", "b-a-bnpm", "b-a-bnest"],
+    pk: [{ pts: [[100,440],[290,440],[575,440],[865,440]], label: ".ts → .js" }] },
+  { t: "La imagen del back: aquí Node se queda",
+    p: `<p>La etapa final del back parte otra vez de <code>node:24-alpine</code>, porque esta vez Node es quien ejecuta el programa. Copia <code>dist/</code> e instala solo las dependencias de ejecución con <code>npm ci --omit=dev</code>: Nest, el ORM, el driver de Postgres… pero no TypeScript ni el CLI de Nest.</p>
+        <p>El arranque es <code>CMD ["node", "dist/main.js"]</code>: el Node.js 2/2 del mapa general, un proceso que no termina y escucha en el puerto 3000. Hoy el Dockerfile del back tiene esto comentado y no tiene <code>CMD</code>; por eso el contenedor termina con <code>Exited (0)</code>.</p>
+        <div class="sec"><b>Seguridad</b>Ejecutadlo con el usuario sin privilegios que trae la imagen oficial (<code>USER node</code>): si alguien consiguiera ejecutar código a través del backend, no sería root dentro del contenedor.</div>`,
+    hl: ["c-apidist", "c-apiimg", "b-a-bimg"],
+    pk: [{ pts: [[865,440],[1077,440]], label: "dist/ + node_modules" }] },
+  { t: "La configuración llega al arrancar, no al construir",
+    p: `<p>La contraseña de la base de datos, el secreto de las sesiones o las claves de OAuth no se escriben en el código ni en la imagen. Compose lee <code>srcs/.env</code> y se los pasa al contenedor como variables de entorno al arrancarlo, y el backend los lee con <code>process.env</code> (o con el <code>ConfigModule</code> de Nest). La misma imagen sirve con otra configuración.</p>
+        <p>En el front es al revés: si el código usa <code>import.meta.env.VITE_ALGO</code>, Vite sustituye esa expresión por su valor durante la construcción y queda escrito dentro del .js que descarga cualquier usuario.</p>
+        <div class="sec"><b>Seguridad</b>Ningún secreto en una variable <code>VITE_</code>. <code>.env</code> fuera de Git (ya lo está) y fuera de las imágenes (<code>.dockerignore</code>).</div>`,
+    hl: ["c-env", "c-apiimg", "b-a-env"],
+    pk: [{ pts: [[1077,554],[1077,470]], label: "DATABASE_URL…" }] }
+];
+
+WALKS.construccion = makeWalk({
+  svg: $("bmap"), layer: $("bpkts"), story: $("bstory"), prev: $("bprev"), next: $("bnext"), all: $("ball"), counter: $("bcounter"),
+  steps: BSTEPS, flipX: 960,
+  intro: `<div class="eyebrow">Vista completa</div>
+     <h2>Lo que pasa durante make, antes de que llegue nadie</h2>
+     <p>Este esquema amplía la zona Construcción del mapa general. Hay dos cadenas paralelas, front y back, que empiezan igual y terminan muy distinto: el front acaba convertido en unos pocos ficheros que sirve nginx; el back, en un programa que ejecuta Node.js.</p>
+     <p>El recuadro verde discontinuo es la etapa de construcción de cada Dockerfile: ahí trabaja Node.js como herramienta (1/2), y todo lo que contiene se descarta al terminar. La columna de la derecha es lo único que llega a ejecutarse.</p>
+     <p>Los datos del front (ficheros, tamaños, número de módulos) salen de construir el repo actual. La parte del back muestra cómo debería quedar: hoy no existe.</p>
+     <p><strong>Pulsa cualquier caja del diagrama</strong> para abrir su ficha, o <strong>Siguiente</strong> para seguirlo en 9 pasos.</p>`
+});
+
+
+/* ---------- ⓪ Leyenda de la anatomía ---------- */
+const legendItems = document.querySelectorAll("#legend li");
+function litPart(p) {
+  document.querySelectorAll("pre.wire span[data-p]").forEach(s => s.classList.toggle("lit", s.dataset.p === p));
+  legendItems.forEach(li => li.classList.toggle("lit", li.dataset.p === p));
+}
+legendItems.forEach(li => {
+  li.addEventListener("mouseenter", () => litPart(li.dataset.p));
+  li.addEventListener("focus", () => litPart(li.dataset.p));
+  li.addEventListener("mouseleave", () => litPart(null));
+  li.addEventListener("blur", () => litPart(null));
+});
+document.querySelectorAll("pre.wire span[data-p]").forEach(s => {
+  s.addEventListener("mouseenter", () => litPart(s.dataset.p));
+  s.addEventListener("mouseleave", () => litPart(null));
+});
+
+/* ---------- ⓪ Diagrama de secuencia ---------- */
+const SEQ = {
+  irc: {
+    cli: ["Cliente", "irssi · nc"], srv: ["Servidor", "tu ircserv"], act: "solid",
+    cap: "En ft_irc la conexión es la sesión: el servidor sabe quién eres porque te identificaste una vez en ese fd. Las flechas en color son mensajes que el servidor envía sin que el cliente haya preguntado.",
+    rows: [
+      { k: "conn", l: "connect() → accept()", n: "Se abre una conexión TCP y se queda abierta hasta QUIT." },
+      { k: "c2s", l: "PASS secreto" },
+      { k: "c2s", l: "NICK pedro" },
+      { k: "c2s", l: "USER pedro 0 * :pedro" },
+      { k: "s2c", l: ":irc 001 pedro :Welcome", n: "El servidor guarda tu nick en el objeto Client de ese fd. Desde aquí, la conexión te identifica." },
+      { k: "c2s", l: "JOIN #42" },
+      { k: "push", l: ":nico PRIVMSG #42 :hola", n: "El servidor envía cuando quiere: mensajes de otros usuarios en cualquier momento." },
+      { k: "c2s", l: "PRIVMSG #42 :buenas", n: "No repites quién eres: el servidor ya lo sabe." },
+      { k: "c2s", l: "QUIT" },
+      { k: "conn", l: "close()", n: "Al cerrar la conexión, el servidor olvida al cliente." }
+    ]
+  },
+  http: {
+    cli: ["Navegador", "fetch()"], srv: ["Servidor", "nginx → NestJS"], act: "dashed",
+    cap: "En HTTP el cliente siempre pregunta y el servidor siempre responde, una vez. La conexión puede quedar abierta para ahorrar tiempo, pero no guarda quién eres: lo dice la cookie de cada petición.",
+    rows: [
+      { k: "conn", l: "connect() + TLS", n: "Conexión TCP y negociación TLS con nginx." },
+      { k: "c2s", l: "GET /api/users/me · Cookie: sid=9f2c…", n: "La petición trae la cookie. El backend busca esa sesión en la base de datos para saber quién eres." },
+      { k: "s2c", l: "200 OK · {\"id\":3,\"username\":\"pedro\"}" },
+      { k: "c2s", l: "POST /api/focus-sessions · Cookie · {…}", n: "Otra petición, otra vez la cookie: el servidor no recuerda la anterior." },
+      { k: "s2c", l: "201 Created · {\"id\":118,…}" },
+      { k: "gap", l: "…un amigo empieza una sesión…", n: "El servidor no puede avisarte: en HTTP solo responde a peticiones." },
+      { k: "c2s", l: "GET /api/friends/activity · Cookie", n: "La única forma de enterarte es volver a preguntar cada cierto tiempo (polling)." },
+      { k: "s2c", l: "200 OK · [{\"user\":\"nico\",…}]" },
+      { k: "conn", l: "keep-alive / close", n: "La conexión puede reutilizarse o cerrarse cuando el navegador quiera. No cambia nada para la app." }
+    ]
+  },
+  ws: {
+    cli: ["Navegador", "new WebSocket()"], srv: ["Servidor", "nginx → NestJS"], act: "solid",
+    cap: "Un WebSocket empieza como una petición HTTP y, tras la respuesta 101, la conexión pasa a funcionar como en ft_irc: abierta y con mensajes en los dos sentidos. Las flechas en color son envíos del servidor sin pregunta previa. Detalle en el esquema ⑤.",
+    rows: [
+      { k: "conn", l: "connect() + TLS" },
+      { k: "c2s", l: "GET /ws · Upgrade: websocket · Cookie", n: "Petición HTTP normal que pide cambiar de protocolo. La cookie identifica al usuario una vez." },
+      { k: "s2c", l: "101 Switching Protocols", n: "Desde aquí la conexión ya no habla HTTP." },
+      { k: "push", l: "{\"type\":\"friend-started\",\"user\":\"nico\"}", n: "El servidor avisa en cuanto ocurre, sin que preguntes." },
+      { k: "c2s", l: "{\"type\":\"chat\",\"to\":\"nico\",\"text\":\"ánimo\"}" },
+      { k: "push", l: "{\"type\":\"chat\",\"from\":\"nico\",\"text\":\"gracias\"}" },
+      { k: "conn", l: "close", n: "El servidor sabe quién eres mientras la conexión siga abierta, como en ft_irc." }
+    ]
+  }
+};
+
+const seqSvg = document.getElementById("seq");
+const seqCap = document.getElementById("seqcap");
+function wrapText(str, max) {
+  const words = str.split(" "); const lines = []; let cur = "";
+  for (const w of words) { if ((cur + " " + w).trim().length > max) { lines.push(cur.trim()); cur = w; } else cur += " " + w; }
+  if (cur.trim()) lines.push(cur.trim());
+  return lines;
+}
+function el(tag, attrs, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  return e;
+}
+function renderSeq(mode) {
+  const d = SEQ[mode];
+  const XC = 150, XS = 690, XN = 760;
+  seqSvg.innerHTML = "";
+  const defs = el("defs", {});
+  [["sqa-ink", "ah-ink"], ["sqa-pkt", "ah-pkt"], ["sqa-mut", "ah-mut"]].forEach(([id, cls]) => {
+    const m = el("marker", { id, viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" });
+    m.append(el("path", { d: "M0,0 L10,5 L0,10 z", class: cls }));
+    defs.append(m);
+  });
+  seqSvg.append(defs);
+  let y = 100;
+  const rowsG = el("g", {});
+  let firstY = null, lastY = null;
+  d.rows.forEach(r => {
+    const noteLines = r.n ? wrapText(r.n, 58) : [];
+    const h = Math.max(42, noteLines.length * 17 + 16);
+    const ay = y + 22;
+    if (r.k === "gap") {
+      rowsG.append(el("text", { class: "sq-gap", x: (XC + XS) / 2, y: ay + 4, "text-anchor": "middle" }, r.l));
+    } else {
+      const cls = r.k === "push" ? "push" : r.k === "conn" ? "conn" : "";
+      const g = el("g", { class: "sq-msg " + cls });
+      const toS = r.k === "c2s";
+      const both = r.k === "conn";
+      const x1 = toS || both ? XC + 7 : XS - 7, x2 = toS || both ? XS - 7 : XC + 7;
+      const mk = r.k === "push" ? "url(#sqa-pkt)" : both ? "url(#sqa-mut)" : "url(#sqa-ink)";
+      const line = el("line", { x1, y1: ay, x2, y2: ay, "marker-end": mk });
+      if (both) line.setAttribute("marker-start", mk);
+      g.append(line, el("text", { x: (XC + XS) / 2, y: ay - 7, "text-anchor": "middle" }, r.l));
+      rowsG.append(g);
+      if (r.k === "conn") { if (firstY === null) firstY = ay; lastY = ay; }
+    }
+    if (noteLines.length) {
+      rowsG.append(el("line", { class: "sq-note-line", x1: XN - 12, y1: y + 8, x2: XN - 12, y2: y + 8 + noteLines.length * 17 }));
+      noteLines.forEach((ln, i) => rowsG.append(el("text", { class: "sq-note", x: XN, y: y + 21 + i * 17 }, ln)));
+    }
+    y += h;
+  });
+  const H = y + 20;
+  seqSvg.setAttribute("viewBox", `0 0 1200 ${H}`);
+  [[XC, d.cli], [XS, d.srv]].forEach(([x, [name, sub]]) => {
+    seqSvg.append(el("line", { class: "sq-life", x1: x, y1: 74, x2: x, y2: H - 10 }));
+    const g = el("g", { class: "sq-actor" });
+    g.append(el("rect", { x: x - 90, y: 20, width: 180, height: 54, rx: 8 }), el("text", { x, y: 43, "text-anchor": "middle" }, name), el("text", { class: "sub", x, y: 62, "text-anchor": "middle" }, sub));
+    seqSvg.append(g);
+    if (firstY !== null && lastY !== null) {
+      const a = el("rect", { class: "sq-act" + (d.act === "dashed" ? " dashed" : ""), x: x - 5, y: firstY, width: 10, height: lastY - firstY, rx: 2 });
+      seqSvg.append(a);
+    }
+  });
+  seqSvg.append(el("text", { class: "sq-gap", x: XN + 60, y: 52 }, "notas"));
+  seqSvg.append(rowsG);
+  seqSvg.setAttribute("aria-label", "Diagrama de secuencia: " + d.cap);
+  seqCap.textContent = d.cap + (d.act === "dashed" ? " La barra discontinua indica que la conexión abierta no aporta estado." : " La barra sobre cada línea indica que la conexión sigue abierta.");
+  document.querySelectorAll(".segb").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+}
+document.querySelectorAll(".segb").forEach(b => b.addEventListener("click", () => renderSeq(b.dataset.mode)));
+renderSeq("irc");
+
+
+/* ---------- ③ Primera carga ---------- */
+Object.assign(FICHAS, {
+  "s-nav": {
+    nombre: "Navegador", zona: "browser", tipo: "cliente",
+    que: "En este esquema hace dos papeles. Como <strong>cliente HTTP</strong>: resuelve nombres, abre conexiones, negocia TLS, envía peticiones, guarda cookies y una caché de ficheros. Como <strong>entorno de ejecución</strong>: interpreta el HTML, ejecuta el JavaScript de la app y pinta la pantalla. La columna de la izquierda del diagrama recoge lo que ocurre dentro del navegador sin tocar la red.",
+    donde: "En el ordenador del usuario.",
+    cuando: "Durante toda la visita.",
+    unidad: "U1, esquema ①"
+  },
+  "s-dns": {
+    nombre: "DNS y /etc/hosts", zona: "browser", tipo: "resolución de nombres",
+    que: "Traduce el nombre de la URL a una dirección IP. Para <code>localhost</code> no hace falta ningún servidor DNS: el sistema operativo lo resuelve con <code>/etc/hosts</code> como <code>127.0.0.1</code>, tu propia máquina. En una web publicada, la pregunta acabaría en un servidor DNS de internet.",
+    donde: "Sistema operativo del usuario (y servidores DNS para nombres públicos).",
+    cuando: "Antes de abrir cada conexión nueva, salvo que la respuesta esté en caché.",
+    unidad: "U1 §3"
+  },
+  "s-tls": {
+    nombre: "Negociación TLS", zona: "server", tipo: "seguridad del canal",
+    que: "Sobre la conexión TCP, navegador y nginx acuerdan claves de cifrado (en TLS 1.3, en un solo viaje de ida y vuelta) y nginx presenta su certificado. Como el nuestro es autofirmado, Chrome muestra la advertencia «La conexión no es privada» la primera vez; si continúas, recuerda la excepción durante un tiempo. El cifrado funciona igual: lo que falta es la garantía de que el servidor es quien dice ser.",
+    donde: "Entre el navegador y nginx. Por detrás de nginx el tráfico va sin cifrar, dentro de la red interna.",
+    cuando: "Al abrir cada conexión nueva.",
+    seg: "Aceptar la advertencia en <code>localhost</code> está bien porque el servidor eres tú. En una web real, esa advertencia significa «no continúes».",
+    unidad: "U1 §5"
+  },
+  "s-router": {
+    nombre: "Rutas en el front (router)", zona: "browser", tipo: "parte de la app",
+    que: "Un router (React Router, aún por instalar) decide qué pantalla mostrar según la ruta de la URL, sin pedir HTML al servidor. Para cambiar de pantalla usa la History API del navegador: cambia la URL de la barra y pinta otra pantalla con el JavaScript que ya tiene. Algunas rutas son <em>protegidas</em>: antes de mostrarlas, la app comprueba con el backend si hay sesión.",
+    donde: "Dentro del bundle, en el navegador.",
+    cuando: "Al arrancar la app y en cada cambio de pantalla.",
+    seg: "Una ruta protegida en el front es comodidad, no seguridad: cualquiera puede saltársela modificando el JavaScript. Lo que protege los datos es que el backend compruebe la sesión en cada endpoint.",
+    unidad: "F10"
+  },
+  "s-guard": {
+    nombre: "Guard de autenticación", zona: "server", tipo: "pieza de NestJS",
+    que: "Código que NestJS ejecuta antes del controller de cada endpoint protegido. Lee la cookie de la petición, busca esa sesión en la base de datos y, si no existe o ha caducado, lanza <code>UnauthorizedException</code>, que Nest convierte en una respuesta <code>401</code>. Si la sesión es válida, deja el usuario disponible para el controller.",
+    donde: "Backend.",
+    cuando: "En cada petición a un endpoint protegido.",
+    seg: "El usuario con el que trabaja el controller sale siempre de aquí, de la sesión. Nunca de un campo del cuerpo ni de la URL: si no, cualquiera podría actuar en nombre de otro (IDOR).",
+    unidad: "F6, F7"
+  },
+  "s-hash": {
+    nombre: "Hash de contraseñas", zona: "server", tipo: "seguridad",
+    que: "La base de datos no guarda contraseñas, sino un hash: una huella que no se puede invertir. Con argon2 se guarda una cadena como <code>$argon2id$v=19$m=65536,t=3,p=4$&lt;salt&gt;$&lt;hash&gt;</code>, que incluye el algoritmo, sus parámetros y una sal aleatoria distinta para cada usuario. Al hacer login, el backend calcula el hash de la contraseña recibida con esos mismos parámetros y lo compara. argon2 es lento a propósito y gasta memoria, para que probar millones de contraseñas sea caro.",
+    donde: "Backend (cálculo) y PostgreSQL (la cadena guardada).",
+    cuando: "Al registrarse y en cada login.",
+    seg: "Responde igual si el email no existe que si la contraseña es incorrecta, para no revelar qué cuentas existen. Y limita los intentos de login (rate limiting) para frenar la fuerza bruta.",
+    unidad: "F6"
+  },
+  "s-cookie": {
+    nombre: "Cookie de sesión", zona: "browser", tipo: "estado entre peticiones",
+    que: "El servidor la crea con la cabecera <code>Set-Cookie</code> y el navegador la reenvía automáticamente, en la cabecera <code>Cookie</code>, en cada petición a ese mismo sitio. <code>fetch</code> también la envía sin configurar nada cuando la petición es al mismo origen. Atributos: <code>HttpOnly</code> (el JavaScript de la página no puede leerla), <code>Secure</code> (solo viaja por HTTPS), <code>SameSite=Lax</code> (no se envía en peticiones POST iniciadas desde otras webs, lo que frena el CSRF), <code>Path=/</code> y <code>Max-Age</code> (cuántos segundos vive; sin él, se borra al cerrar el navegador).",
+    donde: "En el navegador (Application → Cookies en DevTools).",
+    cuando: "Se crea al hacer login, viaja en cada petición y se borra al hacer logout (el servidor responde con <code>Max-Age=0</code> y borra la sesión) o al caducar.",
+    seg: "Quien tenga el valor de la cookie es tú para el servidor. Por eso: HTTPS siempre, <code>HttpOnly</code> para que un XSS no pueda leerla y un valor largo y aleatorio que no se pueda adivinar.",
+    unidad: "U5, F6"
+  },
+  "s-session": {
+    nombre: "Tabla de sesiones", zona: "server", tipo: "datos",
+    que: "Cada login crea una fila con el usuario, un token aleatorio largo (el valor de la cookie) y la fecha de caducidad. En cada petición el guard busca el token recibido en esta tabla. Mejor aún: guardar solo un hash del token, para que una copia filtrada de la base de datos no sirva para suplantar a nadie. Cerrar sesión es borrar la fila.",
+    donde: "PostgreSQL.",
+    cuando: "Se escribe en el login, se lee en cada petición protegida y se borra en el logout.",
+    unidad: "U5, U6, F6"
+  },
+  "s-cache": {
+    nombre: "Caché del navegador", zona: "browser", tipo: "almacenamiento local",
+    que: "El navegador guarda copias de los ficheros descargados y decide si puede reutilizarlas según las cabeceras de la respuesta. Como los ficheros de <code>/assets/</code> llevan un hash en el nombre, su contenido nunca cambia, y nginx podría marcarlos con <code>Cache-Control: public, max-age=31536000, immutable</code>: el navegador no los vuelve a pedir en un año. <code>index.html</code>, en cambio, debería llevar <code>Cache-Control: no-cache</code>: se guarda, pero se pregunta siempre al servidor si ha cambiado, y si no ha cambiado responde <code>304 Not Modified</code> sin cuerpo.",
+    donde: "En el navegador. La configuración de las cabeceras va en nginx (hoy no está).",
+    cuando: "En cada visita después de la primera.",
+    unidad: "esquema ②"
+  }
+});
+
+const LX = { nav: 250, dns: 420, nginx: 600, nest: 820, pg: 1060 };
+const LROWS = [
+  { ph: "1 · LA PÁGINA" },
+  { id: "r1", k: "self", l: "Separa la URL: https · localhost · puerto 443 · ruta /perfil" },
+  { id: "r2", k: "msg", a: "nav", b: "dns", l: "¿IP de localhost?" },
+  { id: "r3", k: "msg", a: "dns", b: "nav", l: "127.0.0.1", back: true },
+  { id: "r4", k: "conn", a: "nav", b: "nginx", l: "TCP + TLS · certificado" },
+  { id: "r5", k: "msg", a: "nav", b: "nginx", l: "GET /perfil" },
+  { id: "r6", k: "msg", a: "nginx", b: "nav", l: "200 · index.html", back: true },
+  { id: "r7", k: "self", l: "Lee el HTML: necesita un .js y un .css" },
+  { id: "r8", k: "msg", a: "nav", b: "nginx", l: "GET /assets/index-DprjRpmE.js" },
+  { id: "r9", k: "msg", a: "nav", b: "nginx", l: "GET /assets/index-fyYMFLWa.css" },
+  { id: "r10", k: "msg", a: "nginx", b: "nav", l: "200 · 221 kB JS · 8 kB CSS", back: true },
+  { id: "r11", k: "self", l: "Ejecuta el JS: React arranca, el router ve /perfil y pinta «Cargando…»" },
+  { ph: "2 · ¿QUIÉN ERES?" },
+  { id: "r12", k: "msg", a: "nav", b: "nest", via: true, l: "GET /api/users/me · sin cookie" },
+  { id: "r13", k: "msg", a: "nest", b: "nav", via: true, l: "401 Unauthorized", back: true, err: true },
+  { id: "r14", k: "self", l: "El router cambia la URL a /login y pinta el formulario" },
+  { ph: "3 · LOGIN" },
+  { id: "r15", k: "msg", a: "nav", b: "nest", via: true, l: "POST /api/auth/login · {email, password}" },
+  { id: "r16", k: "msg", a: "nest", b: "pg", l: "SELECT … WHERE email = $1", db: true },
+  { id: "r17", k: "msg", a: "pg", b: "nest", l: "usuario + hash", back: true, db: true },
+  { id: "r18", k: "msg", a: "nest", b: "pg", l: "INSERT INTO sessions …", db: true },
+  { id: "r19", k: "msg", a: "nest", b: "nav", via: true, l: "200 · Set-Cookie: sid=…; HttpOnly; Secure", back: true },
+  { id: "r20", k: "self", l: "Guarda la cookie. El router vuelve a /perfil" },
+  { ph: "4 · CON SESIÓN" },
+  { id: "r21", k: "msg", a: "nav", b: "nest", via: true, l: "GET /api/users/me · Cookie: sid=…" },
+  { id: "r22", k: "msg", a: "nest", b: "pg", l: "SELECT sesión + usuario", db: true },
+  { id: "r23", k: "msg", a: "pg", b: "nest", l: "fila", back: true, db: true },
+  { id: "r24", k: "msg", a: "nest", b: "nav", via: true, l: "200 · {\"id\":3,\"username\":\"pedro\"}", back: true },
+  { id: "r25", k: "self", l: "Pinta el perfil con esos datos" }
+];
+
+const lseq = $("lseq");
+const LGEO = {};
+(function renderLoad() {
+  const defs = el("defs", {});
+  [["lfa", "ah-ink"], ["lfa-pkt", "ah-pkt"], ["lfa-srv", "ah-srv"], ["lfa-mut", "ah-mut"]].forEach(([id, cls]) => {
+    const m = el("marker", { id, viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" });
+    m.append(el("path", { d: "M0,0 L10,5 L0,10 z", class: cls }));
+    defs.append(m);
+  });
+  lseq.append(defs);
+  const lifeG = el("g", {}), rowsG = el("g", {});
+  let y = 16, n = 0;
+  LROWS.forEach(r => {
+    if (r.ph) {
+      rowsG.append(el("line", { class: "lf-sep", x1: 20, y1: y + 14, x2: 1180, y2: y + 14 }));
+      rowsG.append(el("text", { class: "lf-phase", x: 1180, y: y + 8, "text-anchor": "end" }, r.ph));
+      y += 28; return;
+    }
+    n++;
+    const g = el("g", { class: "ar", "data-id": r.id });
+    if (r.k === "self") {
+      const lines = wrapText(r.l, 30);
+      const h = lines.length * 16 + 12;
+      g.setAttribute("class", "ar lf-self");
+      g.append(el("rect", { x: 20, y: y + 4, width: 200, height: h, rx: 6 }));
+      lines.forEach((ln, i) => g.append(el("text", { x: 30, y: y + 20 + i * 16 }, ln)));
+      g.append(el("line", { x1: 220, y1: y + 4 + h / 2, x2: LX.nav, y2: y + 4 + h / 2 }));
+      LGEO[r.id] = { y: y + 4 + h / 2, x1: LX.nav, x2: LX.nav };
+      rowsG.append(g);
+      y += h + 12; return;
+    }
+    const ay = y + 26;
+    const x1 = LX[r.a], x2 = LX[r.b];
+    const dir = x2 > x1 ? 1 : -1;
+    const cls = ["ar", "lf-msg"];
+    if (r.back) cls.push("back"); if (r.db) cls.push("db"); if (r.err) cls.push("err"); if (r.k === "conn") cls.push("conn");
+    g.setAttribute("class", cls.join(" "));
+    const mk = r.err ? "url(#lfa-pkt)" : r.db ? "url(#lfa-srv)" : r.k === "conn" ? "url(#lfa-mut)" : "url(#lfa)";
+    const line = el("line", { x1: x1 + dir * 6, y1: ay, x2: x2 - dir * 6, y2: ay, "marker-end": mk });
+    if (r.k === "conn") line.setAttribute("marker-start", mk);
+    g.append(line);
+    if (r.via) g.append(el("circle", { class: "via", cx: LX.nginx, cy: ay, r: 4 }));
+    const mid = r.via ? (Math.min(x1, x2) + LX.nginx) / 2 + 40 : (x1 + x2) / 2;
+    g.append(el("text", { x: mid, y: ay - 7, "text-anchor": "middle" }, r.l));
+    g.append(el("text", { class: "lf-num", x: 1180, y: ay + 4, "text-anchor": "end" }, String(n)));
+    LGEO[r.id] = { y: ay, x1, x2 };
+    rowsG.append(g);
+    y += 38;
+  });
+  const H = y + 16;
+  lseq.setAttribute("viewBox", `0 0 1200 ${H}`);
+  Object.values(LX).forEach(x => lifeG.append(el("line", { class: "lf-life", x1: x, y1: 0, x2: x, y2: H })));
+  lseq.append(lifeG, rowsG, el("g", { id: "lpkts" }));
+})();
+
+function lflow(ids, label) {
+  const pts = [];
+  ids.forEach(id => { const g = LGEO[id]; pts.push([g.x1, g.y], [g.x2, g.y]); });
+  return [{ pts, label }];
+}
+
+const LSTEPS = [
+  { t: "Escribes la dirección",
+    p: `<p>Escribes <code>https://localhost/perfil</code> y pulsas Enter. Antes de tocar la red, el navegador separa la URL: esquema <code>https</code>, host <code>localhost</code>, puerto 443 (el de por defecto para HTTPS, porque no se ha escrito otro) y ruta <code>/perfil</code>.</p>
+        <p>Es la primera visita: no hay nada en caché ni ninguna cookie de este sitio. Este es el caso más largo; al final veremos qué se ahorra la segunda vez.</p>`,
+    hl: ["r1", "s-nav"] },
+  { t: "DNS: de nombre a dirección",
+    p: `<p>Para conectarse necesita una IP, no un nombre. Para <code>localhost</code> la respuesta está en <code>/etc/hosts</code>: <code>127.0.0.1</code>, tu propia máquina. Docker recibe las conexiones al puerto 443 de tu máquina y las entrega al contenedor de nginx.</p>
+        <p>En una web publicada, aquí habría una consulta a un servidor DNS de internet, y su respuesta se guardaría en caché un tiempo.</p>`,
+    hl: ["r2", "r3", "s-dns"], pk: () => lflow(["r2", "r3"], "localhost?") },
+  { t: "TCP y TLS: abrir el canal",
+    p: `<p>Con la IP y el puerto, el navegador abre una conexión TCP con nginx: el <code>connect()</code> y <code>accept()</code> de ft_irc. Sobre ella se negocia TLS: acuerdan claves de cifrado y nginx presenta su certificado.</p>
+        <p>Como nuestro certificado es autofirmado, la primera vez Chrome muestra «La conexión no es privada». Hasta que no aceptas, no se envía ninguna petición HTTP. A partir de aquí, todo lo que viaja por esta conexión va cifrado.</p>`,
+    hl: ["r4", "s-tls", "nginx"], pk: () => [{ pts: [[LX.nav, LGEO.r4.y], [LX.nginx, LGEO.r4.y], [LX.nav, LGEO.r4.y]], label: "TCP + TLS" }] },
+  { t: "GET /perfil: nginx no encuentra el fichero",
+    p: `<p>El navegador envía <code>GET /perfil</code>. nginx busca un fichero <code>/perfil</code> en <code>dist/</code> y no lo encuentra. Por la regla <code>try_files $uri $uri/ /index.html</code> devuelve <code>index.html</code> con <code>200 OK</code> y <code>Content-Type: text/html</code>.</p>
+        <p>No es un error: es lo que permite que funcionen todas las rutas de la app. Para nginx, cualquier ruta que no sea un fichero ni empiece por <code>/api/</code> es «la app». Qué pantalla corresponde a <code>/perfil</code> lo decidirá React.</p>`,
+    hl: ["r5", "r6", "nginx"], pk: () => lflow(["r5", "r6"], "GET /perfil") },
+  { t: "El HTML pide más: el .js y el .css",
+    p: `<p>El navegador lee <code>index.html</code>: un <code>&lt;div id="root"&gt;</code> vacío, un <code>&lt;script&gt;</code> y un <code>&lt;link rel="stylesheet"&gt;</code>. Cada uno es una petición más. El navegador las lanza sin esperar una a otra: con HTTP/1.1, Chrome abre hasta 6 conexiones a la vez con el mismo servidor.</p>
+        <p>Son ficheros estáticos: nginx los lee del disco y los envía igual a todo el mundo. Ni el backend ni la base de datos han intervenido todavía.</p>`,
+    hl: ["r7", "r8", "r9", "r10", "nginx"], pk: () => lflow(["r8", "r10"], "/assets/…") },
+  { t: "El JavaScript arranca: React decide qué pantalla",
+    p: `<p>El motor JavaScript ejecuta el bundle. React se monta en <code>#root</code> y el router mira la ruta: <code>/perfil</code>. Es una pantalla protegida, así que antes de mostrarla la app necesita saber si hay una sesión iniciada. Mientras tanto, pinta «Cargando…».</p>
+        <p>¿Por qué no mira simplemente si hay cookie? Porque la cookie de sesión es <code>HttpOnly</code>: el JavaScript de la página no puede leerla. Y aunque pudiera, solo el servidor sabe si esa sesión sigue siendo válida. Hay que preguntar.</p>`,
+    hl: ["r11", "s-router", "s-nav"] },
+  { t: "¿Quién soy? 401",
+    p: `<p>React hace <code>fetch('/api/users/me')</code>. La petición va al mismo nginx; como la ruta empieza por <code>/api/</code>, nginx la reenvía al backend por la red interna (el punto blanco en la línea de nginx).</p>
+        <p>En NestJS, el guard de autenticación se ejecuta antes que el controller. No hay cookie, así que ni siquiera consulta la base de datos: lanza <code>UnauthorizedException</code> y Nest responde <code>401</code> con <code>{"message":"Unauthorized","statusCode":401}</code>. nginx devuelve esa respuesta tal cual.</p>
+        <p>Un 401 aquí es el funcionamiento normal: significa «no sé quién eres», no «algo se ha roto».</p>`,
+    hl: ["r12", "r13", "s-guard", "backend"], pk: () => lflow(["r12", "r13"], "GET /api/users/me") },
+  { t: "El router manda al login, sin recargar",
+    p: `<p>Al recibir el 401, React cambia a la pantalla de login. El router usa la History API: la barra de direcciones pasa a mostrar <code>/login</code>, pero el navegador no pide nada al servidor. Pinta el formulario con el JavaScript que ya tiene.</p>
+        <p>Si ahora pulsaras F5, el navegador sí pediría <code>GET /login</code>, nginx devolvería otra vez <code>index.html</code> (por <code>try_files</code>) y se repetirían los pasos 4 a 7.</p>`,
+    hl: ["r14", "s-router"] },
+  { t: "Login: comprobar la contraseña",
+    p: `<p>Al enviar el formulario, React hace <code>POST /api/auth/login</code> con un cuerpo JSON <code>{"email": "...", "password": "..."}</code>. La contraseña viaja en claro dentro de la petición, pero la petición va cifrada por TLS.</p>
+        <p>En NestJS, primero se valida la forma de los datos (si falta el email o no lo es, <code>400</code>). Después se busca el usuario por email con una consulta parametrizada (<code>$1</code>: el valor nunca se pega dentro del SQL) y se compara la contraseña con el hash guardado usando argon2.</p>
+        <div class="sec"><b>Seguridad</b>Si el email no existe o la contraseña no coincide, la respuesta es la misma (<code>401</code> con un mensaje genérico), para no revelar qué cuentas existen. Y el endpoint de login debe limitar los intentos por IP y por cuenta.</div>`,
+    hl: ["r15", "r16", "r17", "s-hash", "backend", "postgres"], pk: () => lflow(["r15", "r16", "r17"], "POST /api/auth/login") },
+  { t: "Crear la sesión y la cookie",
+    p: `<p>La contraseña es correcta. El backend genera un token aleatorio largo, guarda en la tabla de sesiones una fila con el usuario y la fecha de caducidad, y responde <code>200</code> con la cabecera:</p>
+<pre class="wire">Set-Cookie: sid=Vb3k…Q9; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800</pre>
+        <p>El navegador guarda la cookie y desde ahora la añadirá a cada petición a <code>https://localhost</code>: el <code>Max-Age</code> de este ejemplo son 7 días. El cuerpo de la respuesta no necesita llevar ningún token: la cookie es la sesión.</p>`,
+    hl: ["r18", "r19", "s-cookie", "s-session"], pk: () => lflow(["r18", "r19"], "Set-Cookie") },
+  { t: "Con cookie, el servidor ya sabe quién eres",
+    p: `<p>El router vuelve a <code>/perfil</code> y repite la pregunta del paso 7, esta vez con la cookie: <code>fetch</code> la añade sola porque la petición va al mismo origen. El guard busca esa sesión en la base de datos, obtiene el usuario y deja pasar la petición al controller, que responde <code>200</code> con los datos del perfil en JSON.</p>
+        <p>React guarda esos datos en su estado y pinta la pantalla. Fíjate en lo que no ha pasado: no se ha descargado HTML nuevo ni se ha recompilado nada. A partir de aquí, cada acción repite este patrón (esquema ④).</p>`,
+    hl: ["r20", "r21", "r22", "r23", "r24", "r25", "s-guard", "s-session"], pk: () => lflow(["r21", "r22", "r23", "r24"], "Cookie: sid=…") },
+  { t: "La segunda visita",
+    p: `<p>Mañana vuelves a <code>https://localhost/perfil</code>. Cambian tres cosas:</p>
+        <ol>
+          <li>El certificado ya está aceptado y la conexión puede seguir abierta: se ahorra parte del paso 3.</li>
+          <li><code>index.html</code> se vuelve a pedir, pero si no ha cambiado nginx responde <code>304 Not Modified</code> sin cuerpo. Los ficheros de <code>/assets/</code> salen de la caché sin ninguna petición, porque su nombre con hash garantiza que no han cambiado. Para que esto funcione así, nginx debe enviar las cabeceras <code>Cache-Control</code> adecuadas; hoy no lo hace (ficha «Caché del navegador»).</li>
+          <li>La cookie sigue ahí, así que la petición <code>/api/users/me</code> responde <code>200</code> a la primera y se saltan los pasos 7 a 10.</li>
+        </ol>`,
+    hl: ["r6", "r8", "r9", "r10", "r21", "r22", "r23", "r24", "s-cache", "s-cookie"] }
+];
+LSTEPS.forEach(s => { if (typeof s.pk === "function") s.pk = s.pk(); });
+
+const lbox = $("lbox");
+WALKS.carga = makeWalk({
+  svg: lseq, layer: $("lpkts"), story: $("lstory"), prev: $("lprev"), next: $("lnext"), all: $("lall"), counter: $("lcounter"),
+  steps: LSTEPS, flipX: 900, focusSvgs: [lseq, $("lhead")], zoomable: false,
+  onStep: s => {
+    if (!s) { lbox.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" }); return; }
+    const first = s.hl.find(id => LGEO[id]);
+    if (!first) return;
+    const scale = lseq.clientWidth / 1200;
+    lbox.scrollTo({ top: Math.max(0, LGEO[first].y * scale - 70), behavior: reduced ? "auto" : "smooth" });
+  },
+  intro: `<div class="eyebrow">Vista completa</div>
+     <h2>La primera visita, de la URL al perfil</h2>
+     <p>Este esquema amplía los pasos 4 a 8 del mapa general y recorre la primera visita de alguien que todavía no ha iniciado sesión. Primero se carga la app; después la app pregunta quién eres, el servidor no lo sabe, haces login y, con la cookie ya creada, se carga el perfil.</p>
+     <p>Cada columna es un participante y el tiempo avanza hacia abajo. Las flechas continuas son peticiones y las discontinuas, respuestas. Las flechas en verde azulado son consultas a la base de datos. El punto blanco sobre la línea de nginx indica que nginx solo reenvía la petición al backend. A la izquierda, en azul, lo que pasa dentro del navegador sin tocar la red.</p>
+     <p>El diagrama tiene su propio scroll; durante el recorrido se desplaza solo hasta el paso actual.</p>
+     <p><strong>Pulsa cualquier participante</strong> para abrir su ficha, o <strong>Siguiente</strong> para seguirlo en 12 pasos.</p>`
+});
+
+
+/* ---------- ④ Una interacción ---------- */
+Object.assign(FICHAS, {
+  "i-timer": {
+    nombre: "Componente Temporizador", zona: "browser", tipo: "componente de React",
+    que: "Una función que devuelve JSX y guarda en su estado cuándo empezó y cuándo termina el pomodoro. Durante los 25 minutos no hay ninguna petición: la cuenta atrás ocurre entera en el navegador, y por decisión del equipo es el front quien mide la duración que se guardará. Para mostrar el tiempo restante calcula <code>termina - Date.now()</code> en cada tic, en lugar de restar un segundo cada vez: si la pestaña pasa a segundo plano, Chrome retrasa los temporizadores de JavaScript y una cuenta basada en tics se quedaría atrás.",
+    donde: "En el bundle, ejecutándose en el navegador.",
+    cuando: "Mientras la pantalla del temporizador esté abierta.",
+    unidad: "F10"
+  },
+  "i-handler": {
+    nombre: "Manejador y fetch()", zona: "browser", tipo: "código de la app",
+    que: "La función que se ejecuta cuando el temporizador llega a cero. Construye la petición con <code>fetch</code>: método, ruta, cabecera <code>Content-Type</code> y el cuerpo convertido a texto con <code>JSON.stringify</code>. La cookie de sesión la añade el navegador, porque la petición va al mismo origen. <code>fetch</code> devuelve una <em>Promise</em>: el código sigue con <code>await</code> hasta que llega la respuesta, sin bloquear la página.",
+    donde: "En el bundle, en el navegador.",
+    cuando: "Una vez por pomodoro terminado.",
+    seg: "Lo que se envía desde aquí puede reproducirlo cualquiera con <code>curl</code>. Este código no decide nada importante: solo pide.",
+    unidad: "F4, F9"
+  },
+  "i-state": {
+    nombre: "Estado de React", zona: "browser", tipo: "datos de la interfaz",
+    que: "Los datos de los que depende lo que se ve: XP, nivel, estado del temporizador… Se cambian con la función que devuelve <code>useState</code> (por ejemplo <code>setXp(1340)</code>), nunca asignando la variable a mano. Al cambiar el estado, React vuelve a ejecutar los componentes afectados para saber cómo debería verse ahora la pantalla.",
+    donde: "En la memoria de la pestaña. Al recargar se pierde y se vuelve a pedir al servidor.",
+    cuando: "Cada vez que llegan datos nuevos o el usuario hace algo.",
+    unidad: "F10"
+  },
+  "i-dom": {
+    nombre: "DOM: cambios mínimos", zona: "browser", tipo: "estructura del navegador",
+    que: "React compara la descripción nueva de la pantalla con la anterior (reconciliación) y aplica en el DOM solo las diferencias. En este caso, tres cambios: el ancho de la barra de XP, el texto del nivel y el temporizador, que vuelve a su estado inicial. El resto de la página no se toca.",
+    donde: "En el navegador.",
+    cuando: "Justo después de cada cambio de estado.",
+    unidad: "F9, F10"
+  },
+  "i-mw": {
+    nombre: "Middleware", zona: "server", tipo: "pieza de NestJS",
+    que: "Funciones que se ejecutan con cada petición antes que todo lo demás. Aquí, dos: el analizador del cuerpo, que convierte el texto JSON en un objeto (si no es JSON válido, <code>400</code>), y el lector de cookies, que convierte la cabecera <code>Cookie</code> en <code>req.cookies</code>. Es la misma idea que el middleware de Express, sobre el que funciona Nest.",
+    donde: "Backend, al principio de la cadena.",
+    cuando: "En cada petición, sea a la ruta que sea.",
+    seg: "El analizador del cuerpo tiene un límite de tamaño (en Express, 100 kB por defecto) y nginx otro (<code>client_max_body_size</code>, 1 MB por defecto). Sin límites, un cuerpo gigante agota la memoria.",
+    unidad: "F5, F7"
+  },
+  "i-pipe": {
+    nombre: "Pipe de validación y DTO", zona: "server", tipo: "pieza de NestJS",
+    que: "Un DTO (<em>Data Transfer Object</em>) es una clase que describe qué datos acepta un endpoint, con decoradores de validación. El <code>ValidationPipe</code> comprueba el cuerpo recibido contra esa clase y convierte los parámetros de la URL (en una ruta como <code>/api/focus-sessions/:id</code>, <code>ParseIntPipe</code> transforma <code>\"118\"</code> en el número 118, y <code>\"abc\"</code> en un <code>400</code>). Configurado con <code>whitelist</code> y <code>forbidNonWhitelisted</code>, rechaza cualquier campo que no esté en el DTO.",
+    donde: "Backend, después del guard.",
+    cuando: "En cada petición a un endpoint con DTO o parámetros.",
+    seg: "Es la validación que cuenta: la del front se la puede saltar cualquiera. Rechazar campos de más impide que alguien cuele, por ejemplo, <code>\"xp\": 99999</code> o <code>\"userId\": 5</code> en el cuerpo.",
+    unidad: "F6, F7, U8"
+  },
+  "i-ctrl": {
+    nombre: "Controller", zona: "server", tipo: "pieza de NestJS",
+    que: "Une una ruta HTTP con una función. <code>@Post()</code>, dentro de un controller declarado con <code>@Controller('focus-sessions')</code>, indica que atiende <code>POST /api/focus-sessions</code>; sus parámetros reciben ya validados el DTO del cuerpo y el usuario que dejó el guard. No contiene lógica: llama al service y devuelve su resultado, que Nest convierte en JSON con código <code>200</code> (o <code>201</code> si es un <code>POST</code>).",
+    donde: "Backend, <code>focus-sessions.controller.ts</code>.",
+    cuando: "Solo si la petición ha superado middleware, guard y pipe.",
+    unidad: "F7"
+  },
+  "i-svc": {
+    nombre: "Service", zona: "server", tipo: "pieza de NestJS",
+    que: "Aquí viven las reglas de la app, sin nada de HTTP. Para guardar un pomodoro terminado: calcular la XP que corresponde a la duración recibida, guardar la sesión a nombre del usuario de la sesión y sumar la XP, todo en una transacción. Si algo no se cumple, lanza una excepción y el filtro la convierte en respuesta. Por decisión del equipo, la duración la mide el front: el service la da por buena una vez que el DTO ha comprobado que es un valor posible.",
+    donde: "Backend, <code>focus-sessions.service.ts</code>.",
+    cuando: "Cuando lo llama el controller. Otros services pueden llamarlo también.",
+    seg: "El usuario al que se apunta la sesión es siempre el de la sesión, nunca uno que venga en el cuerpo. Y cuando una operación lea o modifique un registro concreto (por ejemplo, borrar una sesión), la consulta debe filtrar también por usuario para evitar el IDOR.",
+    unidad: "F7, U8"
+  },
+  "i-orm": {
+    nombre: "ORM y transacción", zona: "server", tipo: "acceso a datos",
+    que: "Traduce las operaciones del service a SQL. Una transacción agrupa varias consultas para que se apliquen todas o ninguna: si la segunda falla, la primera se deshace. Para guardar el pomodoro:<br><code>BEGIN;<br>INSERT INTO focus_sessions (user_id, duration_min, tag, ended_at) VALUES ($1, $2, $3, now()) RETURNING id;<br>UPDATE users SET xp = xp + $4 WHERE id = $1 RETURNING xp;<br>COMMIT;</code><br>Con Prisma o TypeORM no se escribe ese SQL a mano, pero es lo que se ejecuta.",
+    donde: "Backend.",
+    cuando: "Cada vez que un service lee o escribe datos.",
+    seg: "Los valores viajan como parámetros (<code>$1</code>, <code>$2</code>), nunca pegados dentro del texto SQL: así es imposible la inyección SQL. Ojo si alguna vez escribís SQL a mano con el ORM: las funciones de «SQL en crudo» permiten volver a cometer ese error.",
+    unidad: "F2, F8"
+  },
+  "i-filter": {
+    nombre: "Filtro de excepciones", zona: "server", tipo: "pieza de NestJS",
+    que: "Recoge cualquier excepción lanzada en la cadena y la convierte en una respuesta HTTP. Las de Nest ya llevan su código: <code>UnauthorizedException</code> → 401, <code>BadRequestException</code> → 400, <code>NotFoundException</code> → 404, <code>ConflictException</code> → 409. Cualquier otro error, por ejemplo un fallo de la base de datos, se convierte en <code>500</code> con un mensaje genérico. Conviene acordar en el contrato de la API un formato de error común.",
+    donde: "Backend. Nest trae uno por defecto; se puede sustituir por uno propio.",
+    cuando: "Solo cuando algo falla.",
+    seg: "Al usuario nunca le llegan trazas, mensajes internos ni SQL. El detalle va a los logs del servidor.",
+    unidad: "F5, F7"
+  }
+});
+
+const ISTEPS = [
+  { t: "El temporizador llega a cero",
+    p: `<p>Empezaste el pomodoro hace 25 minutos. Durante todo ese tiempo no ha habido ninguna petición: el componente guardó cuándo empezaba y la cuenta atrás ocurre entera en el navegador.</p>
+        <p>Ahora llega a cero. El componente calcula la duración (25 minutos) y llama a su manejador para guardarla. Por decisión del equipo, el tiempo lo mide el front y el servidor lo recibe ya calculado.</p>`,
+    hl: ["i-timer", "i-handler", "i-a-tick"], pk: [{ pts: [[180, 140], [180, 170]], label: "00:00" }] },
+  { t: "El manejador construye la petición",
+    p: `<p>El manejador llama a <code>fetch</code>:</p>
+<pre class="wire">const res = await fetch('/api/focus-sessions', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ durationMin: 25, tag: 'estudio' }),
+});</pre>
+        <p>El navegador lo convierte en este mensaje (el mismo de la anatomía del esquema ⓪), añade la cookie y lo envía cifrado por la conexión que ya tiene abierta con nginx:</p>
+<pre class="wire">POST /api/focus-sessions HTTP/1.1
+Host: localhost
+Cookie: sid=9f2c41e07b
+Content-Type: application/json
+Content-Length: 34
+
+{"durationMin":25,"tag":"estudio"}</pre>
+        <p>Fíjate en lo que <strong>no</strong> envía: quién eres. Eso lo dice la cookie.</p>`,
+    hl: ["i-handler", "i-a-req", "nginx"], pk: [{ pts: [[320, 198], [381, 198]], label: "POST /api/focus-sessions" }] },
+  { t: "nginx la reenvía al backend",
+    p: `<p>La ruta empieza por <code>/api/</code>, así que nginx la reenvía tal cual al backend (<code>proxy_pass http://api:3000</code>), por HTTP sin cifrar dentro de la red interna, y esperará su respuesta.</p>
+        <p>Para el backend, quien le habla ahora es nginx, no el navegador. Por eso nginx debe añadir cabeceras como <code>X-Real-IP</code> y <code>X-Forwarded-For</code> con la IP original, y Nest debe configurarse para confiar en ellas solo cuando vienen de nginx. Sin eso, el límite de intentos de login vería a todos los usuarios con la misma IP.</p>`,
+    hl: ["nginx", "i-a-proxy", "i-mw"], pk: [{ pts: [[435, 198], [520, 198], [520, 116], [560, 116]], label: "proxy" }] },
+  { t: "Middleware: de texto a objetos",
+    p: `<p>Lo que llega al backend son bytes. Antes de que intervenga nuestro código, el middleware hace dos conversiones: el cuerpo <code>{"durationMin":25,"tag":"estudio"}</code> pasa a ser un objeto JavaScript, y la cabecera <code>Cookie</code> pasa a <code>req.cookies.sid</code>.</p>
+        <p>Si el cuerpo no fuera JSON válido, la petición terminaría aquí con un <code>400</code>. Desde este momento, ninguna pieza vuelve a trabajar con texto.</p>`,
+    hl: ["i-mw", "i-a-c1"], pk: [{ pts: [[640, 116], [640, 162]], label: "req.body · req.cookies" }] },
+  { t: "Guard: ¿quién eres?",
+    p: `<p>El guard toma <code>req.cookies.sid</code>, busca esa sesión en la base de datos (a través del ORM) y comprueba que no ha caducado. La sesión pertenece al usuario 3, <code>pedro</code>, así que lo deja disponible para el controller y la petición sigue.</p>
+        <p>Sin cookie o con una sesión caducada, lanzaría <code>UnauthorizedException</code> y la respuesta sería <code>401</code>, sin llegar a ejecutar nada más. El pomodoro no se perdería si el front lo guarda y lo reenvía después del login.</p>`,
+    hl: ["s-guard", "i-a-c2"], pk: [{ pts: [[640, 188], [640, 234]], label: "usuario = 3" }] },
+  { t: "Pipe: ¿los datos son válidos?",
+    p: `<p>El pipe compara el cuerpo con el DTO, la clase que describe qué acepta este endpoint:</p>
+<pre class="wire">class CreateSessionDto {
+  @IsInt() @Min(1) @Max(120)
+  durationMin: number;
+
+  @IsString() @MaxLength(30)
+  tag: string;
+}</pre>
+        <p>Si <code>durationMin</code> falta, no es un entero o está fuera de 1–120, o si <code>tag</code> es demasiado largo, <code>400</code> con la lista de errores. Y como el pipe está configurado para rechazar campos que no estén en el DTO, un cuerpo con <code>"userId": 5</code> o <code>"xp": 99999</code> también acaba en <code>400</code>.</p>
+        <p>El DTO comprueba que la duración es un valor posible, no que sea cierta. El rango exacto lo decide el equipo; el subject exige validar todas las entradas también en el backend.</p>`,
+    hl: ["i-pipe", "i-a-c3"], pk: [{ pts: [[640, 260], [640, 306]], label: "dto OK" }] },
+  { t: "Controller: de HTTP a una llamada",
+    p: `<p>Ahora sí se ejecuta nuestro código. El controller recibe todo ya preparado y validado:</p>
+<pre class="wire">@Controller('focus-sessions')
+export class FocusSessionsController {
+  @Post()
+  create(@Body() dto: CreateSessionDto,
+         @CurrentUser() user: User) {
+    return this.sessions.create(user.id, dto);
+  }
+}</pre>
+        <p>No decide nada: traduce la petición HTTP en una llamada al service. <code>@CurrentUser()</code> sería un decorador propio que lee el usuario que dejó el guard. El usuario sale de ahí, nunca del cuerpo. (El prefijo <code>/api</code> se configura una vez para toda la app.)</p>`,
+    hl: ["i-ctrl", "i-a-c4"], pk: [{ pts: [[640, 332], [640, 378]], label: "create(3, dto)" }] },
+  { t: "Service: las reglas de la app",
+    p: `<p>El service aplica las reglas de Superfocus, sin nada de HTTP:</p>
+        <ol>
+          <li>Calcula la XP que corresponde a 25 minutos (la fórmula la decide el equipo; aquí, un punto por minuto).</li>
+          <li>Prepara la sesión nueva a nombre del usuario 3, con la duración y la etiqueta recibidas.</li>
+          <li>Pide al ORM que guarde la sesión y sume la XP en una sola transacción.</li>
+        </ol>
+        <p>Si en el futuro hubiera más reglas (rachas de días, logros, límites diarios), irían aquí, no en el controller ni en el front.</p>
+        <div class="sec"><b>Seguridad</b>La sesión se apunta siempre al usuario de la cookie. Cuando una operación toque un registro concreto, como borrar una sesión con <code>DELETE /api/focus-sessions/118</code>, la consulta deberá filtrar por id <strong>y</strong> por usuario: si no, cualquiera podría borrar sesiones ajenas (IDOR).</div>`,
+    hl: ["i-svc", "i-a-c5"], pk: [{ pts: [[640, 404], [640, 450]], label: "+25 XP" }] },
+  { t: "ORM y PostgreSQL: todo o nada",
+    p: `<p>El ORM traduce la operación a SQL y la ejecuta como una transacción:</p>
+<pre class="wire">BEGIN;
+INSERT INTO focus_sessions (user_id, duration_min, tag, ended_at)
+  VALUES ($1, $2, $3, now()) RETURNING id;
+UPDATE users SET xp = xp + $4 WHERE id = $1 RETURNING xp;
+COMMIT;</pre>
+        <p>Si la segunda consulta fallara, Postgres desharía también la primera: nunca quedará una sesión guardada sin su XP. Los valores (3, 25, "estudio", 25) viajan aparte como parámetros, así que no hay inyección SQL posible.</p>
+        <p>Postgres devuelve el id de la sesión nueva (118) y la XP total (1340), y el ORM se los entrega al service.</p>`,
+    hl: ["i-orm", "postgres", "i-a-sql"], pk: [{ pts: [[860, 476], [950, 476], [860, 476]], label: "BEGIN … COMMIT" }] },
+  { t: "La respuesta vuelve",
+    p: `<p>El service devuelve un objeto al controller, y Nest lo convierte en la respuesta. Como es un <code>POST</code> que crea algo, el código por defecto es <code>201 Created</code>:</p>
+<pre class="wire">HTTP/1.1 201 Created
+Content-Type: application/json; charset=utf-8
+Content-Length: 82
+
+{"id":118,"durationMin":25,"tag":"estudio","xpGained":25,"totalXp":1340,"level":7}</pre>
+        <p>La respuesta no vuelve a pasar por el guard ni por el pipe: sale directamente hacia nginx, que la devuelve al navegador por la conexión cifrada. Todo el viaje de ida y vuelta dura unos milisegundos.</p>`,
+    hl: ["i-ctrl", "i-svc", "i-orm", "i-a-ret", "i-a-res", "i-a-res2", "nginx"], pk: [{ pts: [[800, 476], [800, 332], [494, 332], [381, 334], [320, 334]], label: "201 · JSON" }] },
+  { t: "React actualiza solo lo que cambia",
+    p: `<p>La Promise de <code>fetch</code> se resuelve. El manejador comprueba <code>res.ok</code> (cierto para cualquier 2xx), lee el cuerpo con <code>await res.json()</code> y actualiza el estado: <code>setXp(1340)</code>, <code>setLevel(7)</code> y el temporizador vuelve al inicio.</p>
+        <p>React vuelve a ejecutar los componentes que dependen de ese estado, compara el resultado con lo que había en pantalla y aplica en el DOM solo las diferencias: el ancho de la barra de XP, el texto del nivel y el temporizador. No hay HTML nuevo, ni recarga, ni se ha vuelto a pedir el bundle.</p>
+        <p><code>fetch</code> no lanza un error con un 4xx o un 5xx: solo cuando no hay respuesta. Por eso hay que comprobar <code>res.ok</code> siempre.</p>`,
+    hl: ["i-state", "i-dom", "i-a-set", "i-a-res2"], pk: [{ pts: [[320, 334], [180, 334], [180, 420]], label: "setState" }] },
+  { t: "Cuando algo falla",
+    p: `<p>Si una capa dice que no, la cadena se corta ahí: lanza una excepción y el filtro de excepciones la convierte en una respuesta con su código (<code>401</code> el guard, <code>400</code> el pipe, <code>500</code> si es algo imprevisto, como un fallo de la base de datos) y un cuerpo JSON de error. Las capas siguientes no llegan a ejecutarse.</p>
+        <p>En el front, el manejador ve <code>res.ok === false</code>, lee el código y actúa: ir al login, mostrar el error, ofrecer reintentar sin perder el pomodoro. La pantalla siguiente lo resume capa a capa en una tabla.</p>`,
+    hl: ["s-guard", "i-pipe", "i-svc", "i-filter", "i-a-err", "i-a-errout", "nginx"],
+    pk: [{ pts: [[860, 188], [910, 188], [910, 146], [950, 146]], label: "401" }, { pts: [[1060, 110], [1060, 40], [470, 40], [470, 90]], label: "JSON de error" }] }
+];
+
+WALKS.interaccion = makeWalk({
+  svg: $("imap"), layer: $("ipkts"), story: $("istory"), prev: $("iprev"), next: $("inext"), all: $("iall"), counter: $("icounter"),
+  steps: ISTEPS, flipX: 900,
+  intro: `<div class="eyebrow">Vista completa</div>
+     <h2>Terminar un pomodoro, de punta a punta</h2>
+     <p>Este esquema amplía los pasos 6 a 8 del mapa general con una acción concreta: el temporizador llega a cero y se guarda la sesión de concentración. Es el patrón que seguirá casi todo en la app: una petición, una respuesta en JSON y un cambio de estado en React.</p>
+     <p>Decisión del equipo: el front mide el tiempo y envía la duración; el backend comprueba que es un valor válido y la guarda.</p>
+     <p>La mitad derecha abre la caja de NestJS: cada petición atraviesa varias capas en un orden fijo, y cada una puede cortarla. En rojo, el camino de los errores.</p>
+     <p>Los nombres de rutas, campos y clases son una propuesta: los fijará el contrato de la API.</p>
+     <p><strong>Pulsa cualquier caja</strong> para abrir su ficha, o <strong>Siguiente</strong> para seguirlo en 12 pasos.</p>`
+});
+
+/* ---------- Aplicación: índice, capítulos y pantallas ---------- */
+const CHAPTERS = [
+  { n: 0, icon: "⓪", title: "Repaso: de ft_irc a HTTP", view: "view-repaso", groups: [[0, 1], [2], [3], [4], [5], [6]],
+    desc: "Sockets, TCP y la anatomía de un mensaje HTTP, comparados con ft_irc y webserv.", time: "≈ 20 min", tag: "Opcional" },
+  { n: 1, icon: "①", title: "Mapa general", view: "view-mapa", walk: "mapa", groups: [[1], [2]],
+    desc: "Las tres zonas de la app, quién ejecuta qué y por dónde pasa cada petición.", time: "≈ 15 min", tag: "Empieza aquí" },
+  { n: 2, icon: "②", title: "Construcción", view: "view-construccion", walk: "construccion", groups: [[1], [2]],
+    desc: "Qué ocurre durante make: del código TypeScript a lo que de verdad se ejecuta.", time: "≈ 20 min" },
+  { n: 3, icon: "③", title: "Primera carga", view: "view-carga", walk: "carga", groups: [[1], [2]],
+    desc: "De escribir la URL a ver tu perfil: DNS, TLS, 401, login y cookie de sesión.", time: "≈ 25 min" },
+  { n: 4, icon: "④", title: "Una interacción", view: "view-interaccion", walk: "interaccion", groups: [[1], [2]],
+    desc: "Guardar un pomodoro: la petición atraviesa NestJS capa a capa y vuelve como JSON.", time: "≈ 25 min" }
+];
+
+const app = $("app");
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+
+function textOf(el) {
+  const h = el.querySelector("h2, .eyebrow");
+  return h ? h.textContent.trim() : "Lectura";
+}
+
+CHAPTERS.forEach(ch => {
+  const view = $(ch.view);
+  const kids = [...view.children];
+  const sec = document.createElement("section");
+  sec.className = "chap"; sec.id = "ch" + ch.n; sec.hidden = true;
+  sec.setAttribute("aria-label", ch.icon + " " + ch.title);
+  ch.el = sec; ch.screens = [];
+  if (ch.walk) {
+    const w = WALKS[ch.walk];
+    const fig = kids[0];
+    const story = fig.querySelector(".story");
+    const stage = document.createElement("div"); stage.className = "stage";
+    const dcol = document.createElement("div"); dcol.className = "diag-col";
+    const pcol = document.createElement("aside"); pcol.className = "panel-col";
+    const pscroll = document.createElement("div"); pscroll.className = "panel-scroll";
+    pscroll.append(story); pcol.append(pscroll);
+    dcol.append(fig);
+    if (w.zoomable) {
+      const zb = document.createElement("button");
+      zb.type = "button"; zb.className = "zoom-toggle";
+      dcol.append(zb);
+    }
+    stage.append(dcol, pcol);
+    sec.append(stage);
+    ch.stage = stage; ch.pscroll = pscroll; ch.w = w;
+    ch.screens.push({ t: "walk", i: -1, label: "Vista completa" });
+    for (let i = 0; i < w.count; i++) ch.screens.push({ t: "walk", i, label: "Paso " + (i + 1) });
+  }
+  const reader = document.createElement("div"); reader.className = "reader";
+  ch.groups.forEach(g => {
+    const rd = document.createElement("div"); rd.className = "rd"; rd.hidden = true;
+    g.forEach(ix => rd.append(kids[ix]));
+    reader.append(rd);
+    ch.screens.push({ t: "read", el: rd, label: textOf(rd) });
+  });
+  sec.append(reader);
+  ch.reader = reader;
+  app.append(sec);
+});
+document.querySelector(".wrap").remove();
+
+/* Índice */
+const idx = document.createElement("section");
+idx.className = "index"; idx.id = "scr-index";
+idx.innerHTML = `<div class="ix-wrap">
+  <div class="kicker">ft_transcendence · Superfocus · esquemas del módulo común</div>
+  <h1>Cómo funciona nuestra aplicación web</h1>
+  <p class="ix-lead">Cinco capítulos para entender por dónde pasa cada cosa, de la construcción del código a la pantalla del usuario. Reflejan cómo debería quedar la app terminada, no el estado actual del repo.</p>
+  <ul class="howto">
+    <li>Avanza con <strong>Siguiente</strong>, abajo a la derecha, o con las flechas ← → del teclado. Al terminar un capítulo, el mismo botón te lleva al siguiente.</li>
+    <li>Pulsa las cajas de los diagramas para abrir su ficha.</li>
+    <li>Si quieres, el diagrama puede acercarse a la zona de cada paso durante los recorridos: actívalo o desactívalo con el botón de la esquina del diagrama.</li>
+    <li>El glosario está siempre arriba a la derecha.</li>
+  </ul>
+  <div id="ix-continue"></div>
+  <div class="ix-cards" id="ix-cards"></div>
+  <p class="ix-foot">Stack de referencia: React 19 · TypeScript · Vite 8 · Tailwind CSS 4 · nginx · NestJS sobre Node.js 24 · ORM (Prisma o TypeORM, por decidir) · PostgreSQL 18.</p>
+</div>`;
+app.prepend(idx);
+
+function renderIndex() {
+  const seen = store.get("sf-seen", {});
+  $("ix-cards").innerHTML = CHAPTERS.map(ch => `
+    <button type="button" class="ixcard${ch.n === 1 ? " start" : ""}" data-goto="${ch.n}">
+      <span class="ix-top"><span class="ix-num">${ch.icon}</span>${ch.tag ? `<span class="ix-tag${ch.n === 1 ? " strong" : ""}">${ch.tag}</span>` : ""}${seen[ch.n] ? `<span class="ix-tag seen">Visto</span>` : ""}</span>
+      <span class="ix-title">${ch.title}</span>
+      <span class="ix-desc">${ch.desc}</span>
+      <span class="ix-meta">${ch.screens.length} pantallas · ${ch.time}</span>
+    </button>`).join("") + `
+    <div class="ixcard pending" aria-disabled="true">
+      <span class="ix-top"><span class="ix-num">⑤</span><span class="ix-tag">Pendiente</span></span>
+      <span class="ix-title">Tiempo real</span>
+      <span class="ix-desc">WebSockets: avisos y chat sin que el navegador tenga que preguntar.</span>
+    </div>`;
+  const last = store.get("sf-last", null);
+  const cont = $("ix-continue");
+  if (last && CHAPTERS[last.c] && CHAPTERS[last.c].screens[last.s]) {
+    const ch = CHAPTERS[last.c];
+    cont.innerHTML = `<button type="button" class="btn continue" data-goto="${last.c}" data-screen="${last.s}">Continuar donde lo dejaste: ${ch.icon} ${ch.title}, pantalla ${last.s + 1} de ${ch.screens.length} →</button>`;
+  } else cont.innerHTML = "";
+}
+
+/* Navegación */
+let cur = { c: null, s: 0 };
+const gPrev = $("g-prev"), gNext = $("g-next"), gPos = $("g-pos"), tbTitle = $("tb-title"), tbProg = $("tb-progress");
+
+function nextOf(c, s) {
+  if (c === null) return { c: 1, s: 0, label: "Empezar: ① Mapa general →" };
+  const ch = CHAPTERS[c];
+  if (s < ch.screens.length - 1) return { c, s: s + 1, label: "Siguiente →" };
+  if (c === 0) return { c: 1, s: 0, label: "Continuar: ① Mapa general →" };
+  if (c < CHAPTERS.length - 1) { const n = CHAPTERS[c + 1]; return { c: c + 1, s: 0, label: `Continuar: ${n.icon} ${n.title} →` }; }
+  return { c: null, s: 0, label: "Fin: volver al índice" };
+}
+function prevOf(c, s) {
+  if (c === null) return null;
+  if (s > 0) return { c, s: s - 1, label: "← Anterior" };
+  return { c: null, s: 0, label: "← Índice" };
+}
+
+function setHash(h) {
+  if (location.hash.replace("#", "") === h) return;
+  try { history.pushState(null, "", "#" + h); } catch (e) { try { location.hash = h; } catch (e2) {} }
+}
+
+function show(c, s, opts = {}) {
+  CHAPTERS.forEach(ch => { ch.el.hidden = true; if (ch.w) ch.w.stop(); });
+  idx.hidden = true;
+  cur = { c, s };
+  if (c === null) {
+    renderIndex();
+    idx.hidden = false; idx.scrollTop = 0;
+    tbTitle.textContent = "Cómo funciona Superfocus";
+    tbProg.innerHTML = "";
+    gPos.textContent = "";
+    if (!opts.fromHash) setHash("indice");
+  } else {
+    const ch = CHAPTERS[c];
+    const sc = ch.screens[s];
+    ch.el.hidden = false;
+    tbTitle.textContent = `${ch.icon} ${ch.title}`;
+    if (sc.t === "walk") {
+      ch.stage.hidden = false; ch.reader.hidden = true;
+      ch.pscroll.scrollTop = 0;
+      updateZoomButtons();
+      ch.w.go(sc.i);
+    } else {
+      if (ch.stage) ch.stage.hidden = true;
+      ch.reader.hidden = false;
+      ch.screens.forEach(x => { if (x.t === "read") x.el.hidden = x !== sc; });
+      ch.reader.scrollTop = 0;
+    }
+    tbProg.innerHTML = ch.screens.map((x, i) =>
+      `<button type="button" data-screen="${i}" class="${i < s ? "done" : ""}"${i === s ? ' aria-current="step"' : ""} title="${i + 1}. ${x.label.replace(/"/g, "&quot;")}" aria-label="Pantalla ${i + 1}: ${x.label.replace(/"/g, "&quot;")}"></button>`).join("");
+    gPos.textContent = `${s + 1} / ${ch.screens.length}`;
+    if (!opts.fromHash) setHash(`c${c}-${s + 1}`);
+    store.set("sf-last", { c, s });
+    const seen = store.get("sf-seen", {});
+    if (s === ch.screens.length - 1 && !seen[c]) { seen[c] = true; store.set("sf-seen", seen); }
+  }
+  const p = prevOf(c, s), n = nextOf(c, s);
+  gPrev.hidden = !p; if (p) gPrev.textContent = p.label;
+  gNext.textContent = n.label;
+}
+
+function go(t) { if (t) show(t.c, t.s); }
+gNext.addEventListener("click", () => go(nextOf(cur.c, cur.s)));
+gPrev.addEventListener("click", () => go(prevOf(cur.c, cur.s)));
+$("tb-index").addEventListener("click", () => show(null, 0));
+tbProg.addEventListener("click", e => { const b = e.target.closest("button[data-screen]"); if (b) show(cur.c, +b.dataset.screen); });
+document.addEventListener("click", e => {
+  const g = e.target.closest("[data-goto]");
+  if (!g) return;
+  show(+g.dataset.goto, g.dataset.screen ? +g.dataset.screen : 0);
+});
+document.addEventListener("keydown", e => {
+  if (document.querySelector("dialog[open]")) return;
+  const t = e.target;
+  if (t && (t.matches("input, textarea, select") || t.isContentEditable)) return;
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key === "ArrowRight") { e.preventDefault(); go(nextOf(cur.c, cur.s)); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); go(prevOf(cur.c, cur.s)); }
+});
+
+/* Zoom automático */
+function updateZoomButtons() {
+  document.querySelectorAll(".zoom-toggle").forEach(b => {
+    b.setAttribute("aria-pressed", String(AUTOZOOM));
+    b.textContent = AUTOZOOM ? "Zoom al paso: activado" : "Zoom al paso: desactivado";
+    b.title = AUTOZOOM ? "Pulsa para ver siempre el diagrama completo" : "Pulsa para acercar el diagrama a la zona de cada paso";
+  });
+}
+document.addEventListener("click", e => {
+  if (!e.target.closest(".zoom-toggle")) return;
+  AUTOZOOM = !AUTOZOOM;
+  try { localStorage.setItem("sf-autozoom", AUTOZOOM ? "1" : "0"); } catch (er) {}
+  updateZoomButtons();
+  if (cur.c !== null && CHAPTERS[cur.c].w) CHAPTERS[cur.c].w.refreshZoom();
+});
+let rz = null;
+window.addEventListener("resize", () => {
+  clearTimeout(rz);
+  rz = setTimeout(() => { if (cur.c !== null && CHAPTERS[cur.c].w && CHAPTERS[cur.c].screens[cur.s].t === "walk") CHAPTERS[cur.c].w.refreshZoom(); }, 150);
+});
+
+/* Glosario */
+const gdlg = $("gloss-dlg"), gq = $("gloss-q");
+$("tb-gloss").addEventListener("click", () => {
+  if (typeof gdlg.showModal === "function") gdlg.showModal(); else gdlg.setAttribute("open", "");
+  gq.focus();
+});
+function closeGloss() { if (typeof gdlg.close === "function") gdlg.close(); else gdlg.removeAttribute("open"); }
+$("gloss-close").addEventListener("click", closeGloss);
+gdlg.addEventListener("click", e => { if (e.target === gdlg) closeGloss(); });
+gq.addEventListener("input", () => {
+  const q = gq.value.trim().toLowerCase();
+  document.querySelectorAll("#gloss > div").forEach(d => { d.hidden = q && !d.textContent.toLowerCase().includes(q); });
+});
+
+/* Direcciones: #indice, #c1-3 (capítulo 1, pantalla 3). Las antiguas (#mapa…) llevan al inicio del capítulo. */
+const OLD = { repaso: 0, mapa: 1, construccion: 2, carga: 3, interaccion: 4 };
+function fromHash() {
+  const h = location.hash.replace("#", "");
+  let m = /^c([0-4])-(\d+)$/.exec(h);
+  if (m) {
+    const c = +m[1], s = Math.max(0, Math.min(+m[2] - 1, CHAPTERS[c].screens.length - 1));
+    return { c, s };
+  }
+  if (h in OLD) return { c: OLD[h], s: 0 };
+  return { c: null, s: 0 };
+}
+window.addEventListener("hashchange", () => { const t = fromHash(); if (t.c !== cur.c || t.s !== cur.s) show(t.c, t.s, { fromHash: true }); });
+window.addEventListener("popstate", () => { const t = fromHash(); if (t.c !== cur.c || t.s !== cur.s) show(t.c, t.s, { fromHash: true }); });
+updateZoomButtons();
+(() => { const t = fromHash(); show(t.c, t.s, { fromHash: true }); })();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+#---------------------------------- SERVICES -----------------------------------
+services:
+# -------------------------------- NGINX
+  nginx:
+    container_name: frontend
+    build:
+      context: .
+      dockerfile: infra/nginx/Dockerfile
+    ports:
+       - "443:443"
+    # volumes:
+    #   - web:/usr/share/nginx/html
+    networks:
+      - transcendence
+
+# -------------------------------- DATABASE (PostreSQL)
+
+  db:
+    container_name: db
+    image: postgres:18-alpine
+    env_file: .env
+    networks:
+      - transcendence
+
+# -------------------------------- BACKEND
+
+  api:
+    container_name: backend
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    networks:
+      - transcendence
+
+#----------------------------------- VOLUMES -----------------------------------
+
+volumes:
+  # web:
+  #   driver: local
+  #   driver_opts:
+  #     device: $PWD/srcs/nginx/srcs
+  #     o: bind
+  #     type: none
+  pgdata:
+
+
+#---------------------------------- NETWORKS -----------------------------------
+
+networks:
+  transcendence:
+    driver: bridge
